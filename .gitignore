@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.py[cod]
+
+monitoring.db
+*.log
+server.*.log
+
+reports/monitoring_report_*.md
+
+.env
+.env.*

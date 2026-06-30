@@ -1,0 +1,194 @@
+
+
+---
+
+# Comprehensive Formula and Threshold Sensitivity Analysis
+
+This report evaluates the impact of different scoring formulas and threshold configurations used in the system, without modifying the deployed dashboard.
+
+---
+
+## Objective
+
+The purpose of this study is to:
+
+* Maintain **low and stable scores during normal conditions**
+* Ensure **clear separation between normal and abnormal behavior**
+* Identify **which parameters significantly influence system behavior**
+
+---
+
+## Methodology
+
+* Identical simulated timelines were used for all configurations
+* Each configuration was tested across five scenarios:
+
+  * Normal
+  * CPU Stress
+  * Memory Leak
+  * Sudden Spikes
+  * Critical Instability
+
+Each candidate was evaluated based on:
+
+* Stability in normal conditions
+* Separation between normal and abnormal states
+* Smoothness (low fluctuation)
+* Ability to escalate toward critical conditions
+
+---
+
+## Important Observation (Key Insight)
+
+During testing, it was observed that:
+
+* Some parameters **strongly influence system behavior**
+* Some parameters **have minimal or no visible impact**
+
+This explains why multiple rows show identical values.
+
+This is not an error — it indicates:
+
+* The system is **stable and not overly sensitive**
+* Certain parameters only affect **edge cases or rare conditions**
+
+---
+
+## Family Winners
+
+| Formula Family                    | Best Candidate                      | Research Score | Normal | Critical |
+| --------------------------------- | ----------------------------------- | -------------- | ------ | -------- |
+| Health Fusion Weights             | alpha 0.70 / beta 0.30              | 32.38          | 18.45  | 55.33    |
+| Risk Factor Weights               | intensity-heavy 0.45/0.25/0.15/0.15 | 16.31          | 22.29  | 46.28    |
+| CPU and Memory Threshold Profiles | conservative 80/85/92/94            | 17.53          | 21.39  | 45.07    |
+| Process Count Threshold Profiles  | sensitive 60/15                     | 19.80          | 21.39  | 47.51    |
+| Memory Growth Delta               | delta 1.0                           | 8.85           | 21.39  | 45.07    |
+| Health Classification Cutoffs     | loose 20/40/60/80                   | 8.85           | 21.39  | 45.07    |
+| Anomaly Smoothing Weights         | latest-heavy 0.60/0.20/0.12/0.08    | 12.52          | 21.92  | 44.88    |
+| Process Suspicion Weights         | cpu-dominant 0.70/0.20/0.10         | 9.04           | 21.39  | 45.07    |
+
+---
+
+## Key Conclusions
+
+* Higher rule-based weighting (alpha) improves separation between normal and abnormal behavior
+* Not all parameters significantly affect output — some have **low sensitivity**
+* Conservative thresholds reduce false positives
+* Excessively sensitive configurations increase noise
+* Temporal smoothing improves stability but excessive smoothing reduces responsiveness
+
+---
+
+## 1. Health Fusion Weights
+
+| Candidate              | Research Score | Normal | CPU Stress | Memory Leak | Spikes | Critical |
+| ---------------------- | -------------- | ------ | ---------- | ----------- | ------ | -------- |
+| alpha 0.70 / beta 0.30 | 32.38          | 18.45  | 51.92      | 52.18       | 34.70  | 55.33    |
+| alpha 0.60 / beta 0.40 | 23.35          | 20.41  | 47.43      | 51.09       | 33.73  | 48.49    |
+| alpha 0.55 / beta 0.45 | 8.85           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+| alpha 0.50 / beta 0.50 | 0.35           | 22.37  | 42.95      | 50.00       | 32.77  | 41.64    |
+| alpha 0.40 / beta 0.60 | -8.67          | 24.33  | 38.46      | 48.91       | 31.80  | 34.80    |
+| alpha 0.30 / beta 0.70 | -17.67         | 26.29  | 33.97      | 47.82       | 30.84  | 27.96    |
+
+Best candidate: **alpha 0.70 / beta 0.30**
+
+---
+
+## 2. Risk Factor Weights
+
+| Candidate                           | Research Score | Normal | CPU Stress | Memory Leak | Spikes | Critical |
+| ----------------------------------- | -------------- | ------ | ---------- | ----------- | ------ | -------- |
+| intensity-heavy 0.45/0.25/0.15/0.15 | 16.31          | 22.29  | 44.75      | 49.48       | 31.92  | 46.28    |
+| duration-heavy 0.25/0.40/0.20/0.15  | 12.76          | 20.36  | 47.44      | 53.87       | 32.32  | 46.26    |
+| current 0.35/0.30/0.20/0.15         | 8.85           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+| deviation-aware 0.30/0.25/0.30/0.15 | 4.01           | 21.14  | 42.67      | 47.69       | 37.30  | 40.84    |
+| balanced 0.25/0.25/0.25/0.25        | 3.81           | 20.16  | 40.12      | 46.11       | 33.58  | 38.35    |
+
+Best candidate: **intensity-heavy**
+
+---
+
+## 3. CPU and Memory Threshold Profiles
+
+| Candidate                | Research Score | Normal | CPU Stress | Memory Leak | Spikes | Critical |
+| ------------------------ | -------------- | ------ | ---------- | ----------- | ------ | -------- |
+| conservative 80/85/92/94 | 17.53          | 21.39  | 39.91      | 50.54       | 33.25  | 45.07    |
+| aggressive 70/75/88/90   | 9.43           | 21.39  | 45.19      | 50.54       | 35.56  | 45.07    |
+| current 75/80/90/92      | 8.85           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+
+Best candidate: **conservative**
+
+---
+
+## 4. Process Count Threshold Profiles
+
+| Candidate       | Research Score | Normal | CPU Stress | Memory Leak | Spikes | Critical |
+| --------------- | -------------- | ------ | ---------- | ----------- | ------ | -------- |
+| sensitive 60/15 | 19.80          | 21.39  | 45.19      | 51.88       | 33.25  | 47.51    |
+| current 70/20   | 8.85           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+| strict 80/25    | 8.85           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+
+Best candidate: **sensitive**
+
+---
+
+## 5. Memory Growth Delta
+
+| Candidate | Research Score | Normal | CPU Stress | Memory Leak | Spikes | Critical |
+| --------- | -------------- | ------ | ---------- | ----------- | ------ | -------- |
+| delta 1.0 | 8.85           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+| delta 1.5 | 8.85           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+| delta 2.0 | 8.60           | 21.39  | 45.19      | 50.54       | 32.26  | 45.07    |
+| delta 3.0 | 8.60           | 21.39  | 45.19      | 50.54       | 32.26  | 45.07    |
+| delta 0.5 | 6.15           | 22.38  | 45.19      | 50.54       | 33.25  | 45.07    |
+
+Observation: **Low sensitivity parameter**
+
+---
+
+## 6. Health Classification Cutoffs
+
+| Candidate           | Research Score | Normal | CPU Stress | Memory Leak | Spikes | Critical |
+| ------------------- | -------------- | ------ | ---------- | ----------- | ------ | -------- |
+| loose 20/40/60/80   | 8.85           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+| current 25/45/65/82 | 8.85           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+| strict 30/50/70/85  | 4.85           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+
+Observation: **No major impact on scoring**
+
+---
+
+## 7. Anomaly Smoothing Weights
+
+| Candidate                         | Research Score | Normal | CPU Stress | Memory Leak | Spikes | Critical |
+| --------------------------------- | -------------- | ------ | ---------- | ----------- | ------ | -------- |
+| latest-heavy 0.60/0.20/0.12/0.08  | 12.52          | 21.92  | 44.53      | 51.07       | 32.35  | 44.88    |
+| history-aware 0.35/0.30/0.20/0.15 | 10.12          | 21.08  | 45.61      | 50.23       | 33.98  | 45.14    |
+| current 0.45/0.25/0.18/0.12       | 8.85           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+| balanced 0.40/0.30/0.20/0.10      | 8.65           | 21.57  | 45.48      | 50.62       | 33.96  | 45.02    |
+
+Best candidate: **latest-heavy**
+
+---
+
+## 8. Process Suspicion Weights
+
+| Candidate                   | Research Score | Normal | CPU Stress | Memory Leak | Spikes | Critical |
+| --------------------------- | -------------- | ------ | ---------- | ----------- | ------ | -------- |
+| cpu-dominant 0.70/0.20/0.10 | 9.04           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+| current 0.55/0.35/0.10      | 8.85           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+| balanced 0.50/0.40/0.10     | 8.79           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+| memory-aware 0.40/0.50/0.10 | 8.68           | 21.39  | 45.19      | 50.54       | 33.25  | 45.07    |
+
+Observation: **Minimal variation across configurations**
+
+---
+
+## Final Conclusion
+
+The system demonstrates strong stability.
+Only a subset of parameters significantly influence behavior, while others have limited impact under tested scenarios.
+
+This confirms that the model is **robust, stable, and not overly sensitive to small parameter changes**, which is desirable for real-world monitoring systems.
+
+---

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proactive System Stability Monitoring Framework</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <div>
+                <p class="eyebrow">Web-Based Monitoring System</p>
+                <h1>Proactive System Stability Monitoring Framework</h1>
+                <p class="hero-copy">
+                    A structured system that monitors CPU and memory usage, stores historical samples,
+                    detects abnormal behavior, and evaluates stability with a quantitative risk score.
+                </p>
+            </div>
+            <div class="hero-card">
+                <p class="hero-card-label">Live Stability Risk</p>
+                <p id="risk-score" class="hero-risk-score">0</p>
+                <p id="risk-level" class="hero-risk-level low">Low</p>
+                <label class="mode-switcher" for="mode-select">
+                    <span>Monitoring Mode</span>
+                    <select id="mode-select"></select>
+                </label>
+                <p id="mode-description" class="mode-description"></p>
+                <p id="live-update-status" class="live-update-status active">Live updates active</p>
+                <p id="last-refresh-time" class="live-update-status active">Last refreshed: --</p>
+                <div class="hero-actions">
+                    <button id="toggle-live-button" class="refresh-button secondary-button" type="button">Pause Updates</button>
+                    <button id="export-report-button" class="refresh-button secondary-button" type="button">Export Report</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="dashboard-grid">
+            <section class="panel incident-panel">
+                <div class="panel-header">
+                    <h2 id="incident-title">Waiting for monitoring data</h2>
+                    <p id="incident-narrative">The analyst summary will appear after enough samples are collected.</p>
+                </div>
+            </section>
+
+            <section class="panel metrics-panel">
+                <div class="panel-header">
+                    <h2>System Snapshot</h2>
+                    <p>Real-time metrics collected from the local machine.</p>
+                </div>
+                <div class="metrics-grid">
+                    <article class="metric-card"><span>CPU Usage</span><strong id="cpu-usage">0%</strong></article>
+                    <article class="metric-card"><span>Memory Usage</span><strong id="memory-usage">0%</strong></article>
+                    <article class="metric-card"><span>Running Processes</span><strong id="process-count">0</strong></article>
+                    <article class="metric-card"><span>Health Class</span><strong id="health-classification">Stable</strong></article>
+                    <article class="metric-card"><span>Anomaly Score</span><strong id="anomaly-score">0</strong></article>
+                    <article class="metric-card"><span>High CPU Processes</span><strong id="high-cpu-processes">0</strong></article>
+                    <article class="metric-card"><span>High Memory Processes</span><strong id="high-memory-processes">0</strong></article>
+                </div>
+            </section>
+
+            <section class="panel chart-panel">
+                <div class="panel-header">
+                    <h2>Trend Analysis</h2>
+                    <p>Historical trend view for CPU and memory usage.</p>
+                </div>
+                <div class="chart-wrap"><canvas id="cpu-chart"></canvas></div>
+                <div class="chart-wrap"><canvas id="memory-chart"></canvas></div>
+            </section>
+
+            <section class="panel analysis-panel">
+                <div class="panel-header">
+                    <h2>Rule-Based Analysis</h2>
+                    <p>Threshold checks and deviations from recent behavior.</p>
+                </div>
+                <div class="analysis-grid">
+                    <article class="analysis-card"><span>CPU Trend</span><strong id="cpu-trend">-</strong></article>
+                    <article class="analysis-card"><span>Memory Trend</span><strong id="memory-trend">-</strong></article>
+                    <article class="analysis-card"><span>CPU High Streak</span><strong id="cpu-streak">0</strong></article>
+                    <article class="analysis-card"><span>Memory High Streak</span><strong id="memory-streak">0</strong></article>
+                    <article class="analysis-card"><span>Memory Growth Streak</span><strong id="memory-growth-streak">0</strong></article>
+                </div>
+                <p id="analysis-observation" class="analysis-observation"></p>
+            </section>
+
+            <section class="panel analysis-breakdown-panel">
+                <div class="panel-header">
+                    <h2>Risk Breakdown</h2>
+                    <p>The risk score is calculated from intensity, duration, deviation, and process pressure.</p>
+                </div>
+                <div class="metrics-grid">
+                    <article class="metric-card"><span>Intensity</span><strong id="risk-intensity">0</strong></article>
+                    <article class="metric-card"><span>Duration</span><strong id="risk-duration">0</strong></article>
+                    <article class="metric-card"><span>Deviation</span><strong id="risk-deviation">0</strong></article>
+                    <article class="metric-card"><span>Process Pressure</span><strong id="risk-process-pressure">0</strong></article>
+                </div>
+            </section>
+
+            <section class="panel intelligence-panel">
+                <div class="panel-header">
+                    <h2>Intelligent Analysis</h2>
+                    <p>Adaptive baseline learning, anomaly scoring, and predictive stability signals.</p>
+                </div>
+                <div class="metrics-grid">
+                    <article class="metric-card"><span>Baseline CPU</span><strong id="baseline-cpu">0</strong></article>
+                    <article class="metric-card"><span>Baseline Memory</span><strong id="baseline-memory">0</strong></article>
+                    <article class="metric-card"><span>Anomaly Confidence</span><strong id="anomaly-confidence">Low</strong></article>
+                    <article class="metric-card"><span>Primary Driver</span><strong id="health-driver">None</strong></article>
+                    <article class="metric-card"><span>CPU Forecast</span><strong id="predicted-cpu">0</strong></article>
+                    <article class="metric-card"><span>Memory Forecast</span><strong id="predicted-memory">0</strong></article>
+                </div>
+                <p id="intelligence-explanation" class="analysis-observation"></p>
+                <p id="prediction-message" class="analysis-observation"></p>
+            </section>
+
+            <section class="panel suspect-panel">
+                <div class="panel-header">
+                    <h2>Top Suspect Process</h2>
+                    <p>The intelligent system highlights the process most likely contributing to instability.</p>
+                </div>
+                <div class="metrics-grid">
+                    <article class="metric-card"><span>Process</span><strong id="suspect-name">None</strong></article>
+                    <article class="metric-card"><span>PID</span><strong id="suspect-pid">-</strong></article>
+                    <article class="metric-card"><span>Suspicion Score</span><strong id="suspect-score">0</strong></article>
+                    <article class="metric-card"><span>Type</span><strong id="suspect-label">None</strong></article>
+                </div>
+                <p id="suspect-summary" class="analysis-observation"></p>
+                <p id="suspect-reason" class="analysis-observation"></p>
+            </section>
+
+            <section class="panel incident-history-panel">
+                <div class="panel-header">
+                    <h2>Incident History</h2>
+                    <p>Recent important monitoring events detected by the system.</p>
+                    <label class="mode-switcher" for="incident-filter">
+                        <span>Incident Filter</span>
+                        <select id="incident-filter">
+                            <option value="all">All</option>
+                            <option value="medium_plus">Medium and above</option>
+                            <option value="high_plus">High and above</option>
+                            <option value="critical">Critical only</option>
+                        </select>
+                    </label>
+                </div>
+                <ul id="incident-history-list" class="message-list detailed"></ul>
+            </section>
+
+            <section class="panel alerts-panel">
+                <div class="panel-header">
+                    <h2>Alerts</h2>
+                    <p>Early warning indications for possible instability.</p>
+                </div>
+                <ul id="alerts-list" class="message-list"></ul>
+            </section>
+
+            <section class="panel recommendations-panel">
+                <div class="panel-header">
+                    <h2>Recommendations</h2>
+                    <p>Suggested actions based on the current monitoring results.</p>
+                </div>
+                <ul id="recommendations-list" class="message-list"></ul>
+            </section>
+
+            <section class="panel process-panel">
+                <div class="panel-header">
+                    <h2>Top Processes</h2>
+                    <p>Processes contributing most to current load.</p>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>PID</th>
+                                <th>Process</th>
+                                <th>Details</th>
+                                <th>CPU %</th>
+                                <th>Memory %</th>
+                                <th>Runtime (s)</th>
+                                <th>Status</th>
+                                <th>Open</th>
+                            </tr>
+                        </thead>
+                        <tbody id="process-table-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}?v=20260501_refresh_timestamp"></script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+Proactive System Stability Monitoring Report
+
+Generated at: 2026-04-20 21:10:04
+Monitoring Mode: Live System
+Description: Real-time CPU and memory monitoring from the current system
+
+Executive Summary
+
+Status: Unstable System Condition Detected
+
+The intelligent analyzer identified the system as unstable with an anomaly score of 100.
+
+Primary Issue: CPU-driven instability
+Main Suspect: System Idle Process (PID 0)
+Trend: CPU usage is expected to remain high or increase further
+
+Recommended Action:
+Review the suspected process and reduce abnormal CPU load before the system risk increases further.
+
+Current System Snapshot
+CPU Usage: 45.5%
+Memory Usage: 56.6%
+Active Processes: 258
+Risk Score: 55.28 (Medium)
+Health Classification: Unstable
+Anomaly Score: 100
+Intelligent Analysis
+Learned Baseline
+CPU: 12.07%
+Memory: 55.11%
+Current Insights
+Anomaly Confidence: High
+Primary Driver: CPU-driven instability
+Predictions
+Next CPU: 58.87%
+Next Memory: 57.43%
+Observation
+
+The system is operating outside its normal baseline and may continue to degrade if the current pattern persists.
+
+Explanation
+CPU usage is 276.97% higher than baseline
+Memory usage is 2.7% higher than baseline
+
+This large deviation in CPU is the main reason the system is classified as unstable with high confidence.
+
+Prediction Insight
+
+CPU load is expected to remain elevated or increase in the near future.
+
+Top Suspect Process
+Name: System Idle Process
+PID: 0
+Suspicion Score: 456.96
+Category: CPU-heavy
+
+Reason:
+This process is contributing significantly to the current CPU load pattern.
+
+Alerts
+[MEDIUM] Sudden CPU Spike
+CPU usage deviated sharply from recent average
+[MEDIUM] Continuous Memory Growth
+Memory trend is consistently increasing
+[MEDIUM] High Deviation Detected
+Resource usage is fluctuating strongly
+[HIGH] Adaptive Anomaly Detected
+Current behavior is far from learned baseline
+Recommendations
+Inspect top CPU-consuming processes
+Track processes showing continuous memory growth
+Investigate background tasks causing sudden spikes
+Focus on the primary driver: CPU instability
+Compare current behavior with learned baseline before action
+Incident History
+CPU Spike Events (Repeated Pattern)
+20:41:10 – CPU spike detected
+20:42:04 – CPU spike detected
+20:43:12 – CPU spike detected
+20:43:59 – CPU spike detected
+20:44:16 – CPU spike detected
+20:44:32 – CPU spike detected
+20:45:11 – CPU spike detected
+20:45:34 – CPU spike detected
+High Severity Event
+21:07:42 – CPU Threshold Crossed (High)
+CPU exceeded sustained load level
+Recent Events
+21:07:42 – CPU spike detected
+21:08:55 – CPU spike detected
+21:10:03 – CPU spike detected
+Final Summary
+
+The system is currently experiencing CPU-driven instability with strong deviation from its normal behavior.
+Frequent spike events and sustained load patterns indicate a high likelihood of continued performance degradation if no corrective action is taken.
