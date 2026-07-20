@@ -313,6 +313,8 @@ async function fetchDashboard(options = {}) {
     setText("anomaly-score", payload.summary.anomaly_score ?? 0);
     setText("high-cpu-processes", payload.summary.high_cpu_processes ?? 0);
     setText("high-memory-processes", payload.summary.high_memory_processes ?? 0);
+    setText("monitor-cpu-overhead", `${payload.summary.monitor_cpu_percent ?? 0}%`);
+    setText("monitor-memory-overhead", `${payload.summary.monitor_memory_percent ?? 0}%`);
     setText(
         "latest-sample-label",
         labelDisplayName(payload.summary.collection_label ?? "unlabeled", payload.collection_label?.available)

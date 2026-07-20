@@ -62,6 +62,8 @@ Title: {incident_summary['title']}
 - CPU usage: {summary['cpu_percent']}%
 - Memory usage: {summary['memory_percent']}%
 - Running processes: {summary['total_processes']}
+- Monitor CPU overhead: {summary.get('monitor_cpu_percent', 0)}%
+- Monitor memory overhead: {summary.get('monitor_memory_percent', 0)}%
 - Risk score: {summary['risk_score']} ({summary['risk_level']})
 - Health classification: {summary['health_classification']}
 - Anomaly score: {summary['anomaly_score']}

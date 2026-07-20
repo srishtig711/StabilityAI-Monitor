@@ -58,6 +58,8 @@ class ScenarioSimulator:
             "total_processes": self._total_process_count(mode, state["step"]),
             "high_cpu_processes": high_cpu_processes,
             "high_memory_processes": high_memory_processes,
+            "monitor_cpu_percent": 0.0,
+            "monitor_memory_percent": 0.0,
             "top_processes": processes,
         }
 

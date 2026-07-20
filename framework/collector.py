@@ -13,11 +13,14 @@ from framework.simulator import simulator
 HIGH_CPU_THRESHOLD = 60
 HIGH_MEMORY_THRESHOLD = 15
 TOP_PROCESS_LIMIT = 10
-PROJECT_ROOT = str(Path(__file__).resolve().parents[1]).lower().replace("\\", "/")
 IGNORED_PROCESS_NAMES = {
     "idle",
     "system idle process",
     "system_idle",
+}
+MONITOR_ENTRYPOINTS = {
+    "app.py",
+    "run.bat",
 }
 
 
@@ -43,32 +46,55 @@ def _build_process_identity(process_info):
     return display_name, details[:160], exe_path
 
 
+def _is_monitor_process(process_info):
+    raw_name = (_safe_process_name(process_info) or "").strip().lower()
+    pid = int(process_info.get("pid") or -1)
+    cmdline_parts = [str(part).lower() for part in (process_info.get("cmdline") or [])]
+    normalized_cmdline = " ".join(cmdline_parts).replace("\\", "/")
+
+    if pid == os.getpid():
+        return True
+
+    if "python" not in raw_name and "flask" not in raw_name:
+        return False
+
+    return any(entrypoint in normalized_cmdline for entrypoint in MONITOR_ENTRYPOINTS)
+
+
 def _should_ignore_process(process_info, display_name):
     raw_name = (_safe_process_name(process_info) or "").strip().lower()
     normalized_display_name = (display_name or "").strip().lower()
     pid = int(process_info.get("pid") or -1)
-    cmdline_parts = [str(part).lower() for part in (process_info.get("cmdline") or [])]
-    cmdline = " ".join(cmdline_parts)
-    normalized_cmdline = cmdline.replace("\\", "/")
-    executable_path = str(process_info.get("exe") or "").lower().replace("\\", "/")
-    is_project_python = (
-        "python" in raw_name
-        and (
-            PROJECT_ROOT in normalized_cmdline
-            or "/project 6/" in normalized_cmdline
-            or "app.py" in normalized_cmdline
-            or "run.bat" in normalized_cmdline
-            or PROJECT_ROOT in executable_path
-        )
-    )
 
     return (
         raw_name in IGNORED_PROCESS_NAMES
         or normalized_display_name in IGNORED_PROCESS_NAMES
         or (pid == 0 and ("idle" in raw_name or "idle" in normalized_display_name))
-        or pid == os.getpid()
-        or is_project_python
+        or _is_monitor_process(process_info)
     )
+
+
+def _collect_monitor_overhead():
+    cpu_total = 0.0
+    memory_total = 0.0
+
+    try:
+        root_process = psutil.Process(os.getpid())
+        monitor_processes = [root_process] + root_process.children(recursive=True)
+    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        return {"cpu_percent": 0.0, "memory_percent": 0.0}
+
+    for process in monitor_processes:
+        try:
+            cpu_total += float(process.cpu_percent(interval=None) or 0.0)
+            memory_total += float(process.memory_percent() or 0.0)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+
+    return {
+        "cpu_percent": round(cpu_total, 2),
+        "memory_percent": round(memory_total, 2),
+    }
 
 
 def snapshot_system():
@@ -81,6 +107,7 @@ def snapshot_system():
         insert_snapshot(snapshot)
         return snapshot
 
+    monitor_overhead = _collect_monitor_overhead()
     process_entries = []
     high_cpu_processes = 0
     high_memory_processes = 0
@@ -137,6 +164,8 @@ def snapshot_system():
         "total_processes": len(process_entries),
         "high_cpu_processes": high_cpu_processes,
         "high_memory_processes": high_memory_processes,
+        "monitor_cpu_percent": monitor_overhead["cpu_percent"],
+        "monitor_memory_percent": monitor_overhead["memory_percent"],
         "top_processes": top_processes,
     }
 

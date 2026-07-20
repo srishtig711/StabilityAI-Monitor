@@ -55,12 +55,16 @@ def ensure_database():
             memory_percent REAL NOT NULL,
             total_processes INTEGER NOT NULL,
             high_cpu_processes INTEGER NOT NULL,
-            high_memory_processes INTEGER NOT NULL
+            high_memory_processes INTEGER NOT NULL,
+            monitor_cpu_percent REAL NOT NULL DEFAULT 0,
+            monitor_memory_percent REAL NOT NULL DEFAULT 0
         )
         """
     )
     _ensure_column(cursor, "system_samples", "mode", "TEXT NOT NULL DEFAULT 'live'")
     _ensure_column(cursor, "system_samples", "collection_label", "TEXT NOT NULL DEFAULT 'unlabeled'")
+    _ensure_column(cursor, "system_samples", "monitor_cpu_percent", "REAL NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "system_samples", "monitor_memory_percent", "REAL NOT NULL DEFAULT 0")
 
     cursor.execute(
         """
@@ -119,6 +123,8 @@ def ensure_database():
             total_processes INTEGER NOT NULL,
             high_cpu_processes INTEGER NOT NULL,
             high_memory_processes INTEGER NOT NULL,
+            monitor_cpu_percent REAL NOT NULL DEFAULT 0,
+            monitor_memory_percent REAL NOT NULL DEFAULT 0,
             sampled_process_count INTEGER NOT NULL,
             avg_process_cpu REAL NOT NULL,
             max_process_cpu REAL NOT NULL,
@@ -128,6 +134,8 @@ def ensure_database():
         """
     )
     _ensure_column(cursor, "ml_feature_samples", "collection_label", "TEXT NOT NULL DEFAULT 'unlabeled'")
+    _ensure_column(cursor, "ml_feature_samples", "monitor_cpu_percent", "REAL NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "ml_feature_samples", "monitor_memory_percent", "REAL NOT NULL DEFAULT 0")
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_system_samples_created_at ON system_samples(created_at)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_process_samples_system_sample_id ON process_samples(system_sample_id)")
@@ -153,6 +161,8 @@ def _backfill_ml_feature_samples(cursor):
             total_processes,
             high_cpu_processes,
             high_memory_processes,
+            monitor_cpu_percent,
+            monitor_memory_percent,
             sampled_process_count,
             avg_process_cpu,
             max_process_cpu,
@@ -169,6 +179,8 @@ def _backfill_ml_feature_samples(cursor):
             s.total_processes,
             s.high_cpu_processes,
             s.high_memory_processes,
+            s.monitor_cpu_percent,
+            s.monitor_memory_percent,
             COUNT(p.id),
             COALESCE(AVG(p.cpu_percent), 0),
             COALESCE(MAX(p.cpu_percent), 0),
@@ -204,13 +216,15 @@ def _insert_ml_feature_sample(cursor, sample_id, snapshot):
             total_processes,
             high_cpu_processes,
             high_memory_processes,
+            monitor_cpu_percent,
+            monitor_memory_percent,
             sampled_process_count,
             avg_process_cpu,
             max_process_cpu,
             avg_process_memory,
             max_process_memory
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             sample_id,
@@ -222,6 +236,8 @@ def _insert_ml_feature_sample(cursor, sample_id, snapshot):
             snapshot["total_processes"],
             snapshot["high_cpu_processes"],
             snapshot["high_memory_processes"],
+            snapshot.get("monitor_cpu_percent", 0),
+            snapshot.get("monitor_memory_percent", 0),
             process_count,
             round(sum(cpu_values) / process_count, 2) if process_count else 0,
             round(max(cpu_values), 2) if cpu_values else 0,
@@ -245,9 +261,11 @@ def insert_snapshot(snapshot):
             memory_percent,
             total_processes,
             high_cpu_processes,
-            high_memory_processes
+            high_memory_processes,
+            monitor_cpu_percent,
+            monitor_memory_percent
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             snapshot.get("mode", "live"),
@@ -258,6 +276,8 @@ def insert_snapshot(snapshot):
             snapshot["total_processes"],
             snapshot["high_cpu_processes"],
             snapshot["high_memory_processes"],
+            snapshot.get("monitor_cpu_percent", 0),
+            snapshot.get("monitor_memory_percent", 0),
         ),
     )
 
