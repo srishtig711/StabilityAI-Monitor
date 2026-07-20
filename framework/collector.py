@@ -5,6 +5,7 @@ from pathlib import Path
 import psutil
 
 from framework.database import insert_snapshot
+from framework.labels import get_current_label
 from framework.modes import get_current_mode
 from framework.simulator import simulator
 
@@ -72,9 +73,11 @@ def _should_ignore_process(process_info, display_name):
 
 def snapshot_system():
     mode = get_current_mode()
+    collection_label = get_current_label()
 
     if mode != "live":
         snapshot = simulator.generate_snapshot(mode)
+        snapshot["collection_label"] = collection_label
         insert_snapshot(snapshot)
         return snapshot
 
@@ -127,6 +130,7 @@ def snapshot_system():
 
     snapshot = {
         "mode": mode,
+        "collection_label": collection_label,
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "cpu_percent": round(cpu_percent, 2),
         "memory_percent": round(memory_percent, 2),

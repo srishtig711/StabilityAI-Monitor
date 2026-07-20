@@ -1,6 +1,7 @@
 let cpuChart;
 let memoryChart;
 let availableModes = [];
+let availableLabels = [];
 let readingPanelsLocked = false;
 let lastAlertsSignature = "";
 let lastRecommendationsSignature = "";
@@ -271,6 +272,31 @@ function renderModeOptions(monitoringMode) {
     document.getElementById("mode-description").textContent = monitoringMode.current.description;
 }
 
+function renderLabelOptions(collectionLabel) {
+    const select = document.getElementById("label-select");
+    const currentLabel = collectionLabel.current.key;
+
+    if (availableLabels.length === 0) {
+        availableLabels = collectionLabel.available;
+        select.innerHTML = "";
+
+        availableLabels.forEach((label) => {
+            const option = document.createElement("option");
+            option.value = label.key;
+            option.textContent = label.label;
+            select.appendChild(option);
+        });
+    }
+
+    select.value = currentLabel;
+    document.getElementById("label-description").textContent = collectionLabel.current.description;
+}
+
+function labelDisplayName(key, labels) {
+    const match = (labels || []).find((label) => label.key === key);
+    return match ? match.label : key;
+}
+
 async function fetchDashboard(options = {}) {
     const { force = false } = options;
     if (liveUpdatesPaused && !force) {
@@ -287,6 +313,10 @@ async function fetchDashboard(options = {}) {
     setText("anomaly-score", payload.summary.anomaly_score ?? 0);
     setText("high-cpu-processes", payload.summary.high_cpu_processes ?? 0);
     setText("high-memory-processes", payload.summary.high_memory_processes ?? 0);
+    setText(
+        "latest-sample-label",
+        labelDisplayName(payload.summary.collection_label ?? "unlabeled", payload.collection_label?.available)
+    );
     setText("risk-score", payload.summary.risk_score);
     setText("last-refresh-time", `Last refreshed: ${formatRefreshTime(payload.summary.latest_sample_time)}`);
     updateRiskLevel(payload.summary.risk_level);
@@ -312,6 +342,7 @@ async function fetchDashboard(options = {}) {
     setText("suspect-score", payload.intelligence.process.top_suspect.score ?? 0);
     setText("suspect-label", payload.intelligence.process.top_suspect.label ?? "None");
     renderModeOptions(payload.monitoring_mode);
+    renderLabelOptions(payload.collection_label);
     document.getElementById("incident-filter").value = payload.incident_filter ?? "all";
 
     if (!readingPanelsLocked) {
@@ -348,6 +379,22 @@ async function changeMode(event) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode })
     });
+    await fetchDashboard({ force: true });
+}
+
+async function changeLabel(event) {
+    const label = event.target.value;
+    const response = await fetch("/api/label", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label })
+    });
+
+    if (!response.ok) {
+        const payload = await response.json().catch(() => ({ message: "Unable to change collection label." }));
+        window.alert(payload.message || "Unable to change collection label.");
+    }
+
     await fetchDashboard({ force: true });
 }
 
@@ -409,6 +456,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("toggle-live-button").addEventListener("click", toggleLiveUpdates);
     document.getElementById("export-report-button").addEventListener("click", exportReport);
     document.getElementById("mode-select").addEventListener("change", changeMode);
+    document.getElementById("label-select").addEventListener("change", changeLabel);
     document.getElementById("incident-filter").addEventListener("change", changeIncidentFilter);
     document.getElementById("process-table-body").addEventListener("click", openProcessLocation);
 

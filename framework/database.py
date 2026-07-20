@@ -31,9 +31,25 @@ def ensure_database():
 
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS collection_state (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+        """
+    )
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO collection_state (key, value)
+        VALUES ('current_label', 'unlabeled')
+        """
+    )
+
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS system_samples (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             mode TEXT NOT NULL DEFAULT 'live',
+            collection_label TEXT NOT NULL DEFAULT 'unlabeled',
             created_at TEXT NOT NULL,
             cpu_percent REAL NOT NULL,
             memory_percent REAL NOT NULL,
@@ -44,6 +60,7 @@ def ensure_database():
         """
     )
     _ensure_column(cursor, "system_samples", "mode", "TEXT NOT NULL DEFAULT 'live'")
+    _ensure_column(cursor, "system_samples", "collection_label", "TEXT NOT NULL DEFAULT 'unlabeled'")
 
     cursor.execute(
         """
@@ -51,6 +68,7 @@ def ensure_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             system_sample_id INTEGER NOT NULL,
             mode TEXT NOT NULL DEFAULT 'live',
+            collection_label TEXT NOT NULL DEFAULT 'unlabeled',
             pid INTEGER NOT NULL,
             name TEXT NOT NULL,
             display_name TEXT NOT NULL DEFAULT '',
@@ -65,6 +83,7 @@ def ensure_database():
         """
     )
     _ensure_column(cursor, "process_samples", "mode", "TEXT NOT NULL DEFAULT 'live'")
+    _ensure_column(cursor, "process_samples", "collection_label", "TEXT NOT NULL DEFAULT 'unlabeled'")
     _ensure_column(cursor, "process_samples", "display_name", "TEXT NOT NULL DEFAULT ''")
     _ensure_column(cursor, "process_samples", "details", "TEXT NOT NULL DEFAULT ''")
     _ensure_column(cursor, "process_samples", "executable_path", "TEXT NOT NULL DEFAULT ''")
@@ -93,6 +112,7 @@ def ensure_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             system_sample_id INTEGER NOT NULL UNIQUE,
             mode TEXT NOT NULL DEFAULT 'live',
+            collection_label TEXT NOT NULL DEFAULT 'unlabeled',
             created_at TEXT NOT NULL,
             cpu_percent REAL NOT NULL,
             memory_percent REAL NOT NULL,
@@ -107,6 +127,7 @@ def ensure_database():
         )
         """
     )
+    _ensure_column(cursor, "ml_feature_samples", "collection_label", "TEXT NOT NULL DEFAULT 'unlabeled'")
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_system_samples_created_at ON system_samples(created_at)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_process_samples_system_sample_id ON process_samples(system_sample_id)")
@@ -125,6 +146,7 @@ def _backfill_ml_feature_samples(cursor):
         INSERT OR IGNORE INTO ml_feature_samples (
             system_sample_id,
             mode,
+            collection_label,
             created_at,
             cpu_percent,
             memory_percent,
@@ -140,6 +162,7 @@ def _backfill_ml_feature_samples(cursor):
         SELECT
             s.id,
             s.mode,
+            s.collection_label,
             s.created_at,
             s.cpu_percent,
             s.memory_percent,
@@ -174,6 +197,7 @@ def _insert_ml_feature_sample(cursor, sample_id, snapshot):
         INSERT OR IGNORE INTO ml_feature_samples (
             system_sample_id,
             mode,
+            collection_label,
             created_at,
             cpu_percent,
             memory_percent,
@@ -186,11 +210,12 @@ def _insert_ml_feature_sample(cursor, sample_id, snapshot):
             avg_process_memory,
             max_process_memory
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             sample_id,
             snapshot.get("mode", "live"),
+            snapshot.get("collection_label", "unlabeled"),
             snapshot["created_at"],
             snapshot["cpu_percent"],
             snapshot["memory_percent"],
@@ -214,6 +239,7 @@ def insert_snapshot(snapshot):
         """
         INSERT INTO system_samples (
             mode,
+            collection_label,
             created_at,
             cpu_percent,
             memory_percent,
@@ -221,10 +247,11 @@ def insert_snapshot(snapshot):
             high_cpu_processes,
             high_memory_processes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             snapshot.get("mode", "live"),
+            snapshot.get("collection_label", "unlabeled"),
             snapshot["created_at"],
             snapshot["cpu_percent"],
             snapshot["memory_percent"],
@@ -241,6 +268,7 @@ def insert_snapshot(snapshot):
         INSERT INTO process_samples (
             system_sample_id,
             mode,
+            collection_label,
             pid,
             name,
             display_name,
@@ -251,12 +279,13 @@ def insert_snapshot(snapshot):
             runtime_seconds,
             status
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [
             (
                 sample_id,
                 snapshot.get("mode", "live"),
+                snapshot.get("collection_label", "unlabeled"),
                 process["pid"],
                 process["name"],
                 process.get("display_name", process["name"]),

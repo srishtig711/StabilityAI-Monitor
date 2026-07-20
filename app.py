@@ -6,6 +6,7 @@ from flask import Flask, jsonify, render_template, request
 from framework.analyzer import build_dashboard_payload
 from framework.collector import snapshot_system
 from framework.database import ensure_database
+from framework.labels import get_label_details, set_current_label
 from framework.modes import get_mode_details, set_current_mode
 from framework.reporting import export_report
 from framework.scheduler import start_background_monitor
@@ -49,6 +50,23 @@ def change_mode():
 @app.route("/api/mode", methods=["GET"])
 def current_mode():
     return jsonify(get_mode_details())
+
+
+@app.route("/api/label", methods=["GET"])
+def current_label():
+    return jsonify(get_label_details())
+
+
+@app.route("/api/label", methods=["POST"])
+def change_label():
+    payload = request.get_json(silent=True) or {}
+    selected_label = payload.get("label", "unlabeled")
+    try:
+        details = set_current_label(selected_label)
+    except ValueError as error:
+        return jsonify({"status": "error", "message": str(error)}), 400
+
+    return jsonify({"status": "ok", "collection_label": details})
 
 
 @app.route("/api/process/open", methods=["POST"])

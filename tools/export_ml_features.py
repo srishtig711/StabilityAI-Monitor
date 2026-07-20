@@ -18,6 +18,7 @@ def main():
         """
         SELECT
             mode,
+            collection_label,
             created_at,
             cpu_percent,
             memory_percent,
@@ -37,6 +38,7 @@ def main():
 
     fieldnames = rows[0].keys() if rows else [
         "mode",
+        "collection_label",
         "created_at",
         "cpu_percent",
         "memory_percent",

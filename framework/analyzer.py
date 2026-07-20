@@ -8,6 +8,7 @@ from framework.database import (
     insert_incident_events,
 )
 from framework.intelligence import analyze_intelligence
+from framework.labels import get_label_details, list_labels
 from framework.modes import get_current_mode, get_mode_details, list_modes
 from framework.risk import calculate_risk_score
 
@@ -465,6 +466,7 @@ def build_dashboard_payload(incident_filter="all"):
                 "anomaly_score": 0,
                 "high_cpu_processes": 0,
                 "high_memory_processes": 0,
+                "collection_label": get_label_details()["key"],
             },
             "charts": {"cpu": [], "memory": []},
             "alerts": [
@@ -497,6 +499,10 @@ def build_dashboard_payload(incident_filter="all"):
             "monitoring_mode": {
                 "current": get_mode_details(current_mode),
                 "available": list_modes(),
+            },
+            "collection_label": {
+                "current": get_label_details(),
+                "available": list_labels(),
             },
             "incident_summary": {
                 "title": "Waiting for monitoring data",
@@ -541,6 +547,7 @@ def build_dashboard_payload(incident_filter="all"):
         "risk_level": risk["level"],
         "health_classification": intelligence["health"]["classification"],
         "anomaly_score": intelligence["anomaly"]["score"],
+        "collection_label": latest["collection_label"] if "collection_label" in latest.keys() else "unlabeled",
     }
 
     incident_window_start = _incident_window_start(samples)
@@ -605,6 +612,11 @@ def build_dashboard_payload(incident_filter="all"):
         "monitoring_mode": {
             "current": get_mode_details(current_mode),
             "available": list_modes(),
+        },
+        "collection_label": {
+            "current": get_label_details(),
+            "latest_sample": summary["collection_label"],
+            "available": list_labels(),
         },
         "incident_summary": _build_incident_summary(summary, intelligence),
         "incident_history": [

@@ -30,6 +30,11 @@
                     <select id="mode-select"></select>
                 </label>
                 <p id="mode-description" class="mode-description"></p>
+                <label class="mode-switcher" for="label-select">
+                    <span>Collection Label</span>
+                    <select id="label-select"></select>
+                </label>
+                <p id="label-description" class="mode-description"></p>
                 <p id="live-update-status" class="live-update-status active">Live updates active</p>
                 <p id="last-refresh-time" class="live-update-status active">Last refreshed: --</p>
                 <div class="hero-actions">
@@ -60,6 +65,7 @@
                     <article class="metric-card"><span>Anomaly Score</span><strong id="anomaly-score">0</strong></article>
                     <article class="metric-card"><span>High CPU Processes</span><strong id="high-cpu-processes">0</strong></article>
                     <article class="metric-card"><span>High Memory Processes</span><strong id="high-memory-processes">0</strong></article>
+                    <article class="metric-card"><span>Latest Sample Label</span><strong id="latest-sample-label">Unlabeled</strong></article>
                 </div>
             </section>
 
@@ -191,6 +197,6 @@
         </main>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}?v=20260501_refresh_timestamp"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v=20260721_labels"></script>
 </body>
 </html>
