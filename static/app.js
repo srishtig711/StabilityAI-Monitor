@@ -339,6 +339,10 @@ async function fetchDashboard(options = {}) {
     setText("health-driver", payload.intelligence.health.driver ?? "None");
     setText("predicted-cpu", payload.intelligence.prediction.cpu_next ?? 0);
     setText("predicted-memory", payload.intelligence.prediction.memory_next ?? 0);
+    setText("ml-predicted-class", payload.ml_prediction?.predicted_class ?? "Not trained");
+    setText("ml-confidence", `${payload.ml_prediction?.confidence ?? 0}%`);
+    setText("ml-state", payload.ml_prediction?.state ?? "Unavailable");
+    setText("ml-model-version", payload.ml_prediction?.model_version || "-");
     setText("suspect-name", payload.intelligence.process.top_suspect.display_name ?? "None");
     setText("suspect-pid", payload.intelligence.process.top_suspect.pid ?? "-");
     setText("suspect-score", payload.intelligence.process.top_suspect.score ?? 0);
@@ -352,6 +356,7 @@ async function fetchDashboard(options = {}) {
         setText("incident-narrative", payload.incident_summary.narrative ?? "");
         setText("intelligence-explanation", payload.intelligence.explanation ?? "");
         setText("prediction-message", payload.intelligence.prediction.message ?? "");
+        setText("ml-comparison", payload.ml_prediction?.message ?? "");
         setText("suspect-summary", payload.intelligence.process.summary ?? "");
         setText("suspect-reason", payload.intelligence.process.top_suspect.reason ?? "");
         renderIncidentHistory(payload.incident_history ?? []);

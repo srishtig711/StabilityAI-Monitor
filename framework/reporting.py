@@ -41,6 +41,7 @@ def _format_list(items, empty_message):
 def build_report_content(payload):
     summary = payload["summary"]
     intelligence = payload["intelligence"]
+    ml_prediction = payload.get("ml_prediction", {})
     suspect = intelligence["process"]["top_suspect"]
     monitoring_mode = payload["monitoring_mode"]["current"]
     incident_summary = payload["incident_summary"]
@@ -85,6 +86,16 @@ Explanation:
 
 Prediction:
 {intelligence['prediction']['message']}
+
+## ML Classification
+
+- Predicted class: {ml_prediction.get('predicted_class', 'Not trained')}
+- Confidence: {ml_prediction.get('confidence', 0)}%
+- ML state: {ml_prediction.get('state', 'Unavailable')}
+- Model version: {ml_prediction.get('model_version') or '-'}
+
+Rule vs ML:
+{ml_prediction.get('message', 'No ML comparison available.')}
 
 ## Top Suspect Process
 

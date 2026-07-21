@@ -165,7 +165,7 @@ h1 {
 
 .panel { padding: 22px; }
 
-.incident-panel, .metrics-panel, .chart-panel, .process-panel, .analysis-breakdown-panel, .intelligence-panel, .suspect-panel, .incident-history-panel { grid-column: span 12; }
+.incident-panel, .metrics-panel, .chart-panel, .process-panel, .analysis-breakdown-panel, .intelligence-panel, .ml-panel, .suspect-panel, .incident-history-panel { grid-column: span 12; }
 .analysis-panel, .alerts-panel, .recommendations-panel { grid-column: span 4; }
 
 .incident-panel {

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from statistics import mean
 
 from framework.database import (
+    fetch_latest_ml_feature_sample,
     fetch_latest_processes,
     fetch_recent_incidents,
     fetch_recent_system_samples,
@@ -9,6 +10,7 @@ from framework.database import (
 )
 from framework.intelligence import analyze_intelligence
 from framework.labels import get_label_details, list_labels
+from framework.ml_model import predict_from_feature_row
 from framework.modes import get_current_mode, get_mode_details, list_modes
 from framework.risk import calculate_risk_score
 
@@ -498,6 +500,7 @@ def build_dashboard_payload(incident_filter="all"):
                 "prediction": {"cpu_next": 0, "memory_next": 0, "message": "Waiting for enough data to predict."},
                 "explanation": "Waiting for enough data to learn a system baseline.",
             },
+            "ml_prediction": predict_from_feature_row(None, rule_state="Stable"),
             "monitoring_mode": {
                 "current": get_mode_details(current_mode),
                 "available": list_modes(),
@@ -516,6 +519,7 @@ def build_dashboard_payload(incident_filter="all"):
 
     latest = samples[-1]
     risk = calculate_risk_score(samples)
+    latest_ml_features = fetch_latest_ml_feature_sample(mode=current_mode)
     formatted_processes = [
         {
             "pid": row["pid"],
@@ -613,6 +617,7 @@ def build_dashboard_payload(incident_filter="all"):
         },
         "risk_breakdown": risk["factors"],
         "intelligence": intelligence,
+        "ml_prediction": predict_from_feature_row(latest_ml_features, rule_state=summary["health_classification"]),
         "monitoring_mode": {
             "current": get_mode_details(current_mode),
             "available": list_modes(),

@@ -438,6 +438,34 @@ def fetch_latest_processes(limit=10, mode=None):
     return rows
 
 
+def fetch_latest_ml_feature_sample(mode=None):
+    connection = get_connection()
+
+    if mode:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM ml_feature_samples
+            WHERE mode = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (mode,),
+        ).fetchone()
+    else:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM ml_feature_samples
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+    connection.close()
+    return row
+
+
 def insert_incident_events(events, mode):
     if not events:
         return
