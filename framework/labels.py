@@ -1,3 +1,4 @@
+from datetime import datetime
 from threading import Lock
 
 from framework.database import get_connection
@@ -69,11 +70,48 @@ def get_current_label():
         return DEFAULT_COLLECTION_LABEL
 
 
-def set_current_label(label):
+def _record_collection_session(cursor, previous_label, selected_label, source):
+    now = datetime.now().isoformat(timespec="seconds")
+
+    if previous_label == selected_label:
+        active_session = cursor.execute(
+            """
+            SELECT id
+            FROM collection_sessions
+            WHERE ended_at IS NULL
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        if active_session:
+            return
+
+    cursor.execute(
+        """
+        UPDATE collection_sessions
+        SET ended_at = ?
+        WHERE ended_at IS NULL
+        """,
+        (now,),
+    )
+    cursor.execute(
+        """
+        INSERT INTO collection_sessions (label, started_at, source)
+        VALUES (?, ?, ?)
+        """,
+        (selected_label, now, source),
+    )
+
+
+def set_current_label(label, source="dashboard"):
     selected_label = _normalize_label(label)
 
     with _label_lock:
         connection = get_connection()
+        current_row = connection.execute(
+            "SELECT value FROM collection_state WHERE key = 'current_label'"
+        ).fetchone()
+        previous_label = _normalize_label(current_row["value"]) if current_row else DEFAULT_COLLECTION_LABEL
         connection.execute(
             """
             INSERT INTO collection_state (key, value)
@@ -82,6 +120,7 @@ def set_current_label(label):
             """,
             (selected_label,),
         )
+        _record_collection_session(connection, previous_label, selected_label, source)
         connection.commit()
         connection.close()
 

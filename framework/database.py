@@ -43,6 +43,18 @@ def ensure_database():
         VALUES ('current_label', 'unlabeled')
         """
     )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS collection_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            label TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            ended_at TEXT,
+            source TEXT NOT NULL DEFAULT 'dashboard'
+        )
+        """
+    )
+    _ensure_column(cursor, "collection_sessions", "source", "TEXT NOT NULL DEFAULT 'dashboard'")
 
     cursor.execute(
         """
@@ -141,6 +153,7 @@ def ensure_database():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_process_samples_system_sample_id ON process_samples(system_sample_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_incident_events_event_time ON incident_events(event_time)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_ml_feature_samples_created_at ON ml_feature_samples(created_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_collection_sessions_started_at ON collection_sessions(started_at)")
 
     _backfill_ml_feature_samples(cursor)
 
@@ -478,6 +491,36 @@ def fetch_ml_feature_label_counts():
     ).fetchall()
     connection.close()
     return rows
+
+
+def fetch_current_collection_session():
+    connection = get_connection()
+    row = connection.execute(
+        """
+        SELECT *
+        FROM collection_sessions
+        WHERE ended_at IS NULL
+        ORDER BY id DESC
+        LIMIT 1
+        """
+    ).fetchone()
+    connection.close()
+    return row
+
+
+def fetch_recent_collection_sessions(limit=8):
+    connection = get_connection()
+    rows = connection.execute(
+        """
+        SELECT *
+        FROM collection_sessions
+        ORDER BY id DESC
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+    connection.close()
+    return list(reversed(rows))
 
 
 def insert_incident_events(events, mode):

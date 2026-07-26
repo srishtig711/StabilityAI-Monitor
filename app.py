@@ -62,7 +62,7 @@ def change_label():
     payload = request.get_json(silent=True) or {}
     selected_label = payload.get("label", "unlabeled")
     try:
-        details = set_current_label(selected_label)
+        details = set_current_label(selected_label, source="dashboard")
     except ValueError as error:
         return jsonify({"status": "error", "message": str(error)}), 400
 

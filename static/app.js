@@ -308,6 +308,38 @@ function renderLabelCounts(dataReadiness) {
     });
 }
 
+function renderCollectionSessions(collectionSessions) {
+    const current = collectionSessions.current || {};
+    setText("session-active-label", current.label_name || "Unlabeled");
+    setText("session-started-at", formatRefreshTime(current.started_at));
+
+    const list = document.getElementById("session-history-list");
+    list.innerHTML = "";
+
+    const sessions = collectionSessions.recent || [];
+    if (!sessions.length) {
+        const li = document.createElement("li");
+        li.className = "message-item low";
+        li.innerHTML = `
+            <strong>No collection sessions yet</strong>
+            <p>Changing the collection label will create session history.</p>
+        `;
+        list.appendChild(li);
+        return;
+    }
+
+    sessions.forEach((session) => {
+        const li = document.createElement("li");
+        li.className = "message-item low";
+        const endedAt = session.ended_at ? formatRefreshTime(session.ended_at) : "active";
+        li.innerHTML = `
+            <strong>${session.label_name}</strong>
+            <p>${formatRefreshTime(session.started_at)} to ${endedAt}</p>
+        `;
+        list.appendChild(li);
+    });
+}
+
 async function fetchDashboard(options = {}) {
     const { force = false } = options;
     if (liveUpdatesPaused && !force) {
@@ -377,6 +409,7 @@ async function fetchDashboard(options = {}) {
         setText("ml-comparison", payload.ml_prediction?.message ?? "");
         setText("readiness-message", payload.data_readiness?.message ?? "");
         renderLabelCounts(payload.data_readiness ?? { labels: [] });
+        renderCollectionSessions(payload.collection_sessions ?? { current: {}, recent: [] });
         setText("suspect-summary", payload.intelligence.process.summary ?? "");
         setText("suspect-reason", payload.intelligence.process.top_suspect.reason ?? "");
         renderIncidentHistory(payload.incident_history ?? []);

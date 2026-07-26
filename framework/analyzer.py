@@ -2,9 +2,11 @@ from datetime import datetime, timedelta
 from statistics import mean
 
 from framework.database import (
+    fetch_current_collection_session,
     fetch_latest_ml_feature_sample,
     fetch_latest_processes,
     fetch_ml_feature_label_counts,
+    fetch_recent_collection_sessions,
     fetch_recent_incidents,
     fetch_recent_system_samples,
     insert_incident_events,
@@ -490,11 +492,47 @@ def _build_data_readiness():
     }
 
 
+def _format_collection_session(row):
+    if not row:
+        return {
+            "label": "unlabeled",
+            "label_name": "Unlabeled",
+            "started_at": "",
+            "ended_at": "",
+            "source": "",
+        }
+
+    label = row["label"]
+    try:
+        label_name = get_label_details(label)["label"]
+    except ValueError:
+        label_name = label
+
+    return {
+        "label": label,
+        "label_name": label_name,
+        "started_at": row["started_at"],
+        "ended_at": row["ended_at"] or "",
+        "source": row["source"] if "source" in row.keys() else "",
+    }
+
+
+def _build_collection_sessions():
+    return {
+        "current": _format_collection_session(fetch_current_collection_session()),
+        "recent": [
+            _format_collection_session(row)
+            for row in fetch_recent_collection_sessions(limit=8)
+        ],
+    }
+
+
 def build_dashboard_payload(incident_filter="all"):
     current_mode = get_current_mode()
     samples = fetch_recent_system_samples(limit=_analysis_sample_limit(current_mode), mode=current_mode)
     processes = fetch_latest_processes(mode=current_mode)
     data_readiness = _build_data_readiness()
+    collection_sessions = _build_collection_sessions()
 
     if not samples:
         return {
@@ -551,6 +589,7 @@ def build_dashboard_payload(incident_filter="all"):
                 "available": list_labels(),
             },
             "data_readiness": data_readiness,
+            "collection_sessions": collection_sessions,
             "incident_summary": {
                 "title": "Waiting for monitoring data",
                 "narrative": "The analyst summary will appear after enough samples are collected.",
@@ -670,6 +709,7 @@ def build_dashboard_payload(incident_filter="all"):
             "available": list_labels(),
         },
         "data_readiness": data_readiness,
+        "collection_sessions": collection_sessions,
         "incident_summary": _build_incident_summary(summary, intelligence),
         "incident_history": [
             {
