@@ -63,7 +63,19 @@ New changes can be appended in short form under the update log.
 - Research reports generated for weight and formula comparison.
 - Research-backed parameter tuning applied to the project.
 
-9. Update Log
+9. 7th Semester ML Upgrade
+- Rule-based system kept as baseline instead of being removed.
+- Collection label support added for supervised ML data collection.
+- Dashboard collection label selector added.
+- Samples now store collection_label for system, process, and ML feature rows.
+- Monitor overhead tracking added separately from suspect process analysis.
+- Monitor app filtering refined so workload scripts remain visible.
+- Controlled workload scripts added for CPU stress, memory pressure, and spike sessions.
+- Labeled dataset export script added.
+- Dependency-free supervised nearest-centroid classifier added.
+- ML Classification dashboard section added for predicted class, confidence, ML state, and rule-vs-ML comparison.
+
+10. Update Log
 - Initial monitoring framework created.
 - Dashboard and database integration completed.
 - Rule-based and intelligent analysis added.
@@ -78,3 +90,4 @@ New changes can be appended in short form under the update log.
 - Manual refresh button removed because automatic live updates already collect and refresh dashboard data.
 - Deviation decay slowed with a longer analysis window, and last refreshed time display/cache refresh fixed.
 - Deployment preparation removed for now; project remains focused on local run.bat execution.
+- 7th-semester ML migration started with labels, controlled workload scripts, labeled export, and first supervised ML baseline.

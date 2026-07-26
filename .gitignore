@@ -7,6 +7,11 @@ monitoring.db
 server.*.log
 
 reports/monitoring_report_*.md
+reports/labeled_stability_dataset.csv
+reports/ml_feature_samples.csv
+reports/ml_evaluation_report.md
+
+models/*.pkl
 
 .env
 .env.*
