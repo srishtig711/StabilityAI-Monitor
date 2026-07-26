@@ -34,6 +34,7 @@ def parse_args():
     )
     parser.add_argument("--min-samples", type=int, default=20, help="Minimum labeled rows required.")
     parser.add_argument("--min-labels", type=int, default=2, help="Minimum distinct labels required.")
+    parser.add_argument("--test-ratio", type=float, default=0.25, help="Per-label holdout ratio for evaluation.")
     parser.add_argument("--model-path", type=Path, default=MODEL_PATH, help="Output model path.")
     parser.add_argument("--report-path", type=Path, default=REPORT_PATH, help="Evaluation report path.")
     return parser.parse_args()
@@ -78,14 +79,17 @@ def _scale_vectors(vectors):
     columns = list(zip(*vectors))
     means = [_mean(list(column)) for column in columns]
     stddevs = [_stddev(list(column), means[index]) for index, column in enumerate(columns)]
-    scaled = [
+    return _apply_scaler(vectors, means, stddevs), means, stddevs
+
+
+def _apply_scaler(vectors, means, stddevs):
+    return [
         [
             (value - means[index]) / stddevs[index]
             for index, value in enumerate(vector)
         ]
         for vector in vectors
     ]
-    return scaled, means, stddevs
 
 
 def _build_centroids(vectors, labels):
@@ -121,12 +125,95 @@ def _evaluate(vectors, labels, centroids):
         "total": len(labels),
         "correct": correct,
         "matrix": matrix,
+        "predictions": predictions,
     }
+
+
+def _split_rows_by_label(rows, test_ratio):
+    grouped = defaultdict(list)
+    for row in rows:
+        grouped[row["collection_label"]].append(row)
+
+    train_rows = []
+    test_rows = []
+    normalized_ratio = min(max(test_ratio, 0.0), 0.5)
+
+    for label, label_rows in grouped.items():
+        if len(label_rows) < 4 or normalized_ratio <= 0:
+            train_rows.extend(label_rows)
+            continue
+
+        test_count = max(1, round(len(label_rows) * normalized_ratio))
+        test_count = min(test_count, len(label_rows) - 2)
+        train_rows.extend(label_rows[:-test_count])
+        test_rows.extend(label_rows[-test_count:])
+
+    return train_rows, test_rows
+
+
+def _train_centroid_model(rows):
+    labels = [row["collection_label"] for row in rows]
+    vectors = [_row_to_vector(row) for row in rows]
+    scaled_vectors, means, stddevs = _scale_vectors(vectors)
+    centroids = _build_centroids(scaled_vectors, labels)
+    return {
+        "labels": labels,
+        "vectors": vectors,
+        "scaled_vectors": scaled_vectors,
+        "means": means,
+        "stddevs": stddevs,
+        "centroids": centroids,
+    }
+
+
+def _evaluate_model(rows, test_ratio):
+    train_rows, test_rows = _split_rows_by_label(rows, test_ratio)
+    evaluation_rows = test_rows
+    evaluation_type = "holdout"
+
+    if len(test_rows) < 2 or len({row["collection_label"] for row in test_rows}) < 2:
+        train_rows = rows
+        evaluation_rows = rows
+        evaluation_type = "training"
+
+    trained = _train_centroid_model(train_rows)
+    evaluation_labels = [row["collection_label"] for row in evaluation_rows]
+    evaluation_vectors = [_row_to_vector(row) for row in evaluation_rows]
+    scaled_evaluation_vectors = _apply_scaler(
+        evaluation_vectors,
+        trained["means"],
+        trained["stddevs"],
+    )
+    evaluation = _evaluate(scaled_evaluation_vectors, evaluation_labels, trained["centroids"])
+    evaluation["type"] = evaluation_type
+    evaluation["train_total"] = len(train_rows)
+    return evaluation
+
+
+def _build_classification_metrics(labels, evaluation):
+    metrics = {}
+    matrix = evaluation["matrix"]
+
+    for label in labels:
+        true_positive = matrix[label][label]
+        false_positive = sum(matrix[other][label] for other in labels if other != label)
+        false_negative = sum(matrix[label][other] for other in labels if other != label)
+        precision = true_positive / (true_positive + false_positive) if true_positive + false_positive else 0
+        recall = true_positive / (true_positive + false_negative) if true_positive + false_negative else 0
+        f1 = (2 * precision * recall / (precision + recall)) if precision + recall else 0
+        metrics[label] = {
+            "precision": round(precision * 100, 2),
+            "recall": round(recall * 100, 2),
+            "f1": round(f1 * 100, 2),
+        }
+
+    return metrics
 
 
 def _write_report(report_path, model, evaluation):
     report_path.parent.mkdir(parents=True, exist_ok=True)
     labels = sorted(model["label_counts"])
+    metrics = _build_classification_metrics(labels, evaluation)
     matrix_lines = []
     for expected in labels:
         cells = [str(evaluation["matrix"][expected][predicted]) for predicted in labels]
@@ -138,7 +225,9 @@ Generated at: {model['created_at']}
 Model type: Standard-scaled nearest-centroid classifier
 Training samples: {model['training_samples']}
 Labels: {', '.join(labels)}
-Training accuracy: {evaluation['accuracy']}% ({evaluation['correct']}/{evaluation['total']})
+Evaluation type: {evaluation['type']}
+Evaluation samples: {evaluation['total']}
+Evaluation accuracy: {evaluation['accuracy']}% ({evaluation['correct']}/{evaluation['total']})
 
 ## Label Counts
 
@@ -149,6 +238,12 @@ Training accuracy: {evaluation['accuracy']}% ({evaluation['correct']}/{evaluatio
 | Expected | {' | '.join(labels)} |
 | --- | {' | '.join('---' for _ in labels)} |
 {chr(10).join(matrix_lines)}
+
+## Per-Class Metrics
+
+| Label | Precision % | Recall % | F1 % |
+| --- | --- | --- | --- |
+{chr(10).join(f"| {label} | {metrics[label]['precision']} | {metrics[label]['recall']} | {metrics[label]['f1']} |" for label in labels)}
 
 ## Feature Columns
 
@@ -168,24 +263,23 @@ def main():
     if len(label_counts) < args.min_labels:
         raise SystemExit(f"Need at least {args.min_labels} labels; found {len(label_counts)}.")
 
-    vectors = [_row_to_vector(row) for row in rows]
-    scaled_vectors, means, stddevs = _scale_vectors(vectors)
-    centroids = _build_centroids(scaled_vectors, labels)
-    evaluation = _evaluate(scaled_vectors, labels, centroids)
+    trained = _train_centroid_model(rows)
+    evaluation = _evaluate_model(rows, args.test_ratio)
 
     model = {
         "version": "nearest-centroid-v1",
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "feature_columns": FEATURE_COLUMNS,
-        "means": means,
-        "stddevs": stddevs,
-        "centroids": centroids,
+        "means": trained["means"],
+        "stddevs": trained["stddevs"],
+        "centroids": trained["centroids"],
         "label_counts": dict(label_counts),
         "training_samples": len(rows),
         "evaluation": {
             "accuracy": evaluation["accuracy"],
             "total": evaluation["total"],
             "correct": evaluation["correct"],
+            "type": evaluation["type"],
         },
     }
 
@@ -196,7 +290,8 @@ def main():
     _write_report(args.report_path, model, evaluation)
     print(f"Model saved to: {args.model_path}")
     print(f"Evaluation report saved to: {args.report_path}")
-    print(f"Training accuracy: {evaluation['accuracy']}%")
+    print(f"Evaluation type: {evaluation['type']}")
+    print(f"Evaluation accuracy: {evaluation['accuracy']}%")
 
 
 if __name__ == "__main__":
