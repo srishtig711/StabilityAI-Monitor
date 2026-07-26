@@ -4,6 +4,7 @@ from statistics import mean
 from framework.database import (
     fetch_latest_ml_feature_sample,
     fetch_latest_processes,
+    fetch_ml_feature_label_counts,
     fetch_recent_incidents,
     fetch_recent_system_samples,
     insert_incident_events,
@@ -25,6 +26,8 @@ SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 INCIDENT_WINDOW_MINUTES = 10
 LIVE_ANALYSIS_SAMPLE_LIMIT = 90
 DEFAULT_ANALYSIS_SAMPLE_LIMIT = 30
+MIN_TRAINING_SAMPLES = 20
+MIN_TRAINING_LABELS = 2
 
 
 def _build_series(samples, field):
@@ -450,10 +453,48 @@ def _filter_incidents_to_window(events, window_start):
     return filtered
 
 
+def _build_data_readiness():
+    rows = fetch_ml_feature_label_counts()
+    counts = {row["collection_label"]: int(row["sample_count"]) for row in rows}
+    label_details = list_labels()
+    labels = [
+        {
+            "key": label["key"],
+            "label": label["label"],
+            "count": counts.get(label["key"], 0),
+        }
+        for label in label_details
+    ]
+    labeled_total = sum(item["count"] for item in labels if item["key"] != "unlabeled")
+    distinct_labeled = sum(1 for item in labels if item["key"] != "unlabeled" and item["count"] > 0)
+    ready = labeled_total >= MIN_TRAINING_SAMPLES and distinct_labeled >= MIN_TRAINING_LABELS
+
+    if ready:
+        message = "Enough labeled data exists to run the first ML training pass."
+    elif labeled_total < MIN_TRAINING_SAMPLES and distinct_labeled < MIN_TRAINING_LABELS:
+        message = "Collect more labeled samples across at least two labels before training."
+    elif labeled_total < MIN_TRAINING_SAMPLES:
+        message = f"Collect at least {MIN_TRAINING_SAMPLES - labeled_total} more labeled sample(s) before training."
+    else:
+        message = "Collect samples for at least one more non-unlabeled label before training."
+
+    return {
+        "ready": ready,
+        "message": message,
+        "labeled_total": labeled_total,
+        "unlabeled_total": counts.get("unlabeled", 0),
+        "distinct_labeled": distinct_labeled,
+        "min_training_samples": MIN_TRAINING_SAMPLES,
+        "min_training_labels": MIN_TRAINING_LABELS,
+        "labels": labels,
+    }
+
+
 def build_dashboard_payload(incident_filter="all"):
     current_mode = get_current_mode()
     samples = fetch_recent_system_samples(limit=_analysis_sample_limit(current_mode), mode=current_mode)
     processes = fetch_latest_processes(mode=current_mode)
+    data_readiness = _build_data_readiness()
 
     if not samples:
         return {
@@ -509,6 +550,7 @@ def build_dashboard_payload(incident_filter="all"):
                 "current": get_label_details(),
                 "available": list_labels(),
             },
+            "data_readiness": data_readiness,
             "incident_summary": {
                 "title": "Waiting for monitoring data",
                 "narrative": "The analyst summary will appear after enough samples are collected.",
@@ -627,6 +669,7 @@ def build_dashboard_payload(incident_filter="all"):
             "latest_sample": summary["collection_label"],
             "available": list_labels(),
         },
+        "data_readiness": data_readiness,
         "incident_summary": _build_incident_summary(summary, intelligence),
         "incident_history": [
             {

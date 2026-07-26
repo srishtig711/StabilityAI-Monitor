@@ -466,6 +466,20 @@ def fetch_latest_ml_feature_sample(mode=None):
     return row
 
 
+def fetch_ml_feature_label_counts():
+    connection = get_connection()
+    rows = connection.execute(
+        """
+        SELECT collection_label, COUNT(*) AS sample_count
+        FROM ml_feature_samples
+        GROUP BY collection_label
+        ORDER BY collection_label
+        """
+    ).fetchall()
+    connection.close()
+    return rows
+
+
 def insert_incident_events(events, mode):
     if not events:
         return

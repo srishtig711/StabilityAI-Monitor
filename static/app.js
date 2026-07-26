@@ -297,6 +297,17 @@ function labelDisplayName(key, labels) {
     return match ? match.label : key;
 }
 
+function renderLabelCounts(dataReadiness) {
+    const list = document.getElementById("label-counts-list");
+    list.innerHTML = "";
+
+    (dataReadiness.labels || []).forEach((label) => {
+        const li = document.createElement("li");
+        li.textContent = `${label.label}: ${label.count}`;
+        list.appendChild(li);
+    });
+}
+
 async function fetchDashboard(options = {}) {
     const { force = false } = options;
     if (liveUpdatesPaused && !force) {
@@ -343,6 +354,13 @@ async function fetchDashboard(options = {}) {
     setText("ml-confidence", `${payload.ml_prediction?.confidence ?? 0}%`);
     setText("ml-state", payload.ml_prediction?.state ?? "Unavailable");
     setText("ml-model-version", payload.ml_prediction?.model_version || "-");
+    setText("readiness-labeled-total", payload.data_readiness?.labeled_total ?? 0);
+    setText("readiness-unlabeled-total", payload.data_readiness?.unlabeled_total ?? 0);
+    setText(
+        "readiness-distinct-labels",
+        `${payload.data_readiness?.distinct_labeled ?? 0}/${payload.data_readiness?.min_training_labels ?? 2}`
+    );
+    setText("readiness-status", payload.data_readiness?.ready ? "Ready" : "Not ready");
     setText("suspect-name", payload.intelligence.process.top_suspect.display_name ?? "None");
     setText("suspect-pid", payload.intelligence.process.top_suspect.pid ?? "-");
     setText("suspect-score", payload.intelligence.process.top_suspect.score ?? 0);
@@ -357,6 +375,8 @@ async function fetchDashboard(options = {}) {
         setText("intelligence-explanation", payload.intelligence.explanation ?? "");
         setText("prediction-message", payload.intelligence.prediction.message ?? "");
         setText("ml-comparison", payload.ml_prediction?.message ?? "");
+        setText("readiness-message", payload.data_readiness?.message ?? "");
+        renderLabelCounts(payload.data_readiness ?? { labels: [] });
         setText("suspect-summary", payload.intelligence.process.summary ?? "");
         setText("suspect-reason", payload.intelligence.process.top_suspect.reason ?? "");
         renderIncidentHistory(payload.incident_history ?? []);

@@ -165,7 +165,7 @@ h1 {
 
 .panel { padding: 22px; }
 
-.incident-panel, .metrics-panel, .chart-panel, .process-panel, .analysis-breakdown-panel, .intelligence-panel, .ml-panel, .suspect-panel, .incident-history-panel { grid-column: span 12; }
+.incident-panel, .metrics-panel, .chart-panel, .process-panel, .analysis-breakdown-panel, .intelligence-panel, .ml-panel, .data-readiness-panel, .suspect-panel, .incident-history-panel { grid-column: span 12; }
 .analysis-panel, .alerts-panel, .recommendations-panel { grid-column: span 4; }
 
 .incident-panel {
@@ -224,6 +224,11 @@ h1 {
     padding-left: 18px;
     display: grid;
     gap: 10px;
+}
+
+.readiness-list {
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    margin-top: 16px;
 }
 
 .message-list.detailed {

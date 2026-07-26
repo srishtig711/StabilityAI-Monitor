@@ -139,6 +139,21 @@
                 <p id="ml-comparison" class="analysis-observation"></p>
             </section>
 
+            <section class="panel data-readiness-panel">
+                <div class="panel-header">
+                    <h2>Training Data Readiness</h2>
+                    <p>Live count of labeled ML feature samples available for supervised training.</p>
+                </div>
+                <div class="metrics-grid">
+                    <article class="metric-card"><span>Labeled Samples</span><strong id="readiness-labeled-total">0</strong></article>
+                    <article class="metric-card"><span>Unlabeled Samples</span><strong id="readiness-unlabeled-total">0</strong></article>
+                    <article class="metric-card"><span>Distinct Labels</span><strong id="readiness-distinct-labels">0</strong></article>
+                    <article class="metric-card"><span>Training Status</span><strong id="readiness-status">Not ready</strong></article>
+                </div>
+                <p id="readiness-message" class="analysis-observation"></p>
+                <ul id="label-counts-list" class="message-list readiness-list"></ul>
+            </section>
+
             <section class="panel suspect-panel">
                 <div class="panel-header">
                     <h2>Top Suspect Process</h2>
