@@ -157,6 +157,33 @@ h1 {
     border: 1px solid rgba(148, 163, 184, 0.18);
 }
 
+.view-switcher {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 0 0 20px;
+}
+
+.view-switch-button {
+    padding: 12px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.72);
+    color: var(--text);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+}
+
+.view-switch-button.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    color: #03121a;
+}
+
+.hidden {
+    display: none !important;
+}
+
 .dashboard-grid {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
@@ -165,7 +192,7 @@ h1 {
 
 .panel { padding: 22px; }
 
-.incident-panel, .metrics-panel, .chart-panel, .process-panel, .analysis-breakdown-panel, .intelligence-panel, .ml-panel, .data-readiness-panel, .collection-session-panel, .suspect-panel, .incident-history-panel { grid-column: span 12; }
+.incident-panel, .metrics-panel, .chart-panel, .process-panel, .analysis-breakdown-panel, .intelligence-panel, .ml-panel, .collection-control-panel, .data-readiness-panel, .collection-session-panel, .suspect-panel, .incident-history-panel { grid-column: span 12; }
 .analysis-panel, .alerts-panel, .recommendations-panel { grid-column: span 4; }
 
 .incident-panel {

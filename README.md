@@ -71,7 +71,12 @@ This creates `.venv` if needed, installs dependencies, and starts the Flask app.
 
 ## Labeled Data Collection
 
-Use the dashboard's **Collection Label** selector before and during each data collection session.
+The dashboard has two views:
+
+- **Monitoring View** is the normal-user/presentation view for risk, alerts, charts, ML classification, and process analysis.
+- **Data Collection View** contains training-only controls such as collection labels, readiness counts, and session history.
+
+Use the **Collection Label** selector in Data Collection View before and during each data collection session.
 
 Available labels:
 

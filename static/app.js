@@ -8,6 +8,7 @@ let lastRecommendationsSignature = "";
 let currentIncidentFilter = "all";
 let liveUpdatesPaused = false;
 let dashboardIntervalId;
+let currentDashboardView = "monitoring";
 
 function createChart(context, label, color) {
     return new Chart(context, {
@@ -176,6 +177,19 @@ function updateLiveUpdateUi() {
     button.textContent = liveUpdatesPaused ? "Resume Updates" : "Pause Updates";
     status.textContent = liveUpdatesPaused ? "Live updates paused for analysis" : "Live updates active";
     status.className = `live-update-status ${liveUpdatesPaused ? "paused" : "active"}`;
+}
+
+function setDashboardView(view) {
+    currentDashboardView = view === "collection" ? "collection" : "monitoring";
+    document.querySelectorAll(".monitoring-view-panel").forEach((panel) => {
+        panel.classList.toggle("hidden", currentDashboardView !== "monitoring");
+    });
+    document.querySelectorAll(".collection-view-panel").forEach((panel) => {
+        panel.classList.toggle("hidden", currentDashboardView !== "collection");
+    });
+    document.querySelectorAll(".view-switch-button").forEach((button) => {
+        button.classList.toggle("active", button.dataset.view === currentDashboardView);
+    });
 }
 
 function renderProcesses(processes) {
@@ -515,12 +529,15 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("toggle-live-button").addEventListener("click", toggleLiveUpdates);
     document.getElementById("export-report-button").addEventListener("click", exportReport);
+    document.getElementById("monitoring-view-button").addEventListener("click", () => setDashboardView("monitoring"));
+    document.getElementById("collection-view-button").addEventListener("click", () => setDashboardView("collection"));
     document.getElementById("mode-select").addEventListener("change", changeMode);
     document.getElementById("label-select").addEventListener("change", changeLabel);
     document.getElementById("incident-filter").addEventListener("change", changeIncidentFilter);
     document.getElementById("process-table-body").addEventListener("click", openProcessLocation);
 
     updateLiveUpdateUi();
+    setDashboardView("monitoring");
     await fetchDashboard({ force: true });
     dashboardIntervalId = window.setInterval(() => {
         fetchDashboard();

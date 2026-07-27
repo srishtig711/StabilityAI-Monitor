@@ -30,11 +30,6 @@
                     <select id="mode-select"></select>
                 </label>
                 <p id="mode-description" class="mode-description"></p>
-                <label class="mode-switcher" for="label-select">
-                    <span>Collection Label</span>
-                    <select id="label-select"></select>
-                </label>
-                <p id="label-description" class="mode-description"></p>
                 <p id="live-update-status" class="live-update-status active">Live updates active</p>
                 <p id="last-refresh-time" class="live-update-status active">Last refreshed: --</p>
                 <div class="hero-actions">
@@ -44,15 +39,20 @@
             </div>
         </header>
 
+        <nav class="view-switcher" aria-label="Dashboard view">
+            <button id="monitoring-view-button" class="view-switch-button active" type="button" data-view="monitoring">Monitoring View</button>
+            <button id="collection-view-button" class="view-switch-button" type="button" data-view="collection">Data Collection View</button>
+        </nav>
+
         <main class="dashboard-grid">
-            <section class="panel incident-panel">
+            <section class="panel incident-panel monitoring-view-panel">
                 <div class="panel-header">
                     <h2 id="incident-title">Waiting for monitoring data</h2>
                     <p id="incident-narrative">The analyst summary will appear after enough samples are collected.</p>
                 </div>
             </section>
 
-            <section class="panel metrics-panel">
+            <section class="panel metrics-panel monitoring-view-panel">
                 <div class="panel-header">
                     <h2>System Snapshot</h2>
                     <p>Real-time metrics collected from the local machine.</p>
@@ -65,13 +65,12 @@
                     <article class="metric-card"><span>Anomaly Score</span><strong id="anomaly-score">0</strong></article>
                     <article class="metric-card"><span>High CPU Processes</span><strong id="high-cpu-processes">0</strong></article>
                     <article class="metric-card"><span>High Memory Processes</span><strong id="high-memory-processes">0</strong></article>
-                    <article class="metric-card"><span>Latest Sample Label</span><strong id="latest-sample-label">Unlabeled</strong></article>
                     <article class="metric-card"><span>Monitor CPU</span><strong id="monitor-cpu-overhead">0%</strong></article>
                     <article class="metric-card"><span>Monitor Memory</span><strong id="monitor-memory-overhead">0%</strong></article>
                 </div>
             </section>
 
-            <section class="panel chart-panel">
+            <section class="panel chart-panel monitoring-view-panel">
                 <div class="panel-header">
                     <h2>Trend Analysis</h2>
                     <p>Historical trend view for CPU and memory usage.</p>
@@ -80,7 +79,7 @@
                 <div class="chart-wrap"><canvas id="memory-chart"></canvas></div>
             </section>
 
-            <section class="panel analysis-panel">
+            <section class="panel analysis-panel monitoring-view-panel">
                 <div class="panel-header">
                     <h2>Rule-Based Analysis</h2>
                     <p>Threshold checks and deviations from recent behavior.</p>
@@ -95,7 +94,7 @@
                 <p id="analysis-observation" class="analysis-observation"></p>
             </section>
 
-            <section class="panel analysis-breakdown-panel">
+            <section class="panel analysis-breakdown-panel monitoring-view-panel">
                 <div class="panel-header">
                     <h2>Risk Breakdown</h2>
                     <p>The risk score is calculated from intensity, duration, deviation, and process pressure.</p>
@@ -108,7 +107,7 @@
                 </div>
             </section>
 
-            <section class="panel intelligence-panel">
+            <section class="panel intelligence-panel monitoring-view-panel">
                 <div class="panel-header">
                     <h2>Intelligent Analysis</h2>
                     <p>Adaptive baseline learning, anomaly scoring, and predictive stability signals.</p>
@@ -125,7 +124,7 @@
                 <p id="prediction-message" class="analysis-observation"></p>
             </section>
 
-            <section class="panel ml-panel">
+            <section class="panel ml-panel monitoring-view-panel">
                 <div class="panel-header">
                     <h2>ML Classification</h2>
                     <p>Supervised model output trained from labeled resource and process-summary features.</p>
@@ -139,7 +138,24 @@
                 <p id="ml-comparison" class="analysis-observation"></p>
             </section>
 
-            <section class="panel data-readiness-panel">
+            <section class="panel collection-control-panel collection-view-panel hidden">
+                <div class="panel-header">
+                    <h2>Data Collection Controls</h2>
+                    <p>Training-only controls for labeling real monitoring samples before model training.</p>
+                </div>
+                <div class="metrics-grid">
+                    <article class="metric-card"><span>Latest Sample Label</span><strong id="latest-sample-label">Unlabeled</strong></article>
+                    <article class="metric-card">
+                        <label class="mode-switcher" for="label-select">
+                            <span>Collection Label</span>
+                            <select id="label-select"></select>
+                        </label>
+                    </article>
+                </div>
+                <p id="label-description" class="analysis-observation"></p>
+            </section>
+
+            <section class="panel data-readiness-panel collection-view-panel hidden">
                 <div class="panel-header">
                     <h2>Training Data Readiness</h2>
                     <p>Live count of labeled ML feature samples available for supervised training.</p>
@@ -154,7 +170,7 @@
                 <ul id="label-counts-list" class="message-list readiness-list"></ul>
             </section>
 
-            <section class="panel collection-session-panel">
+            <section class="panel collection-session-panel collection-view-panel hidden">
                 <div class="panel-header">
                     <h2>Collection Sessions</h2>
                     <p>Audit trail of label changes used during supervised data collection.</p>
@@ -166,7 +182,7 @@
                 <ul id="session-history-list" class="message-list detailed"></ul>
             </section>
 
-            <section class="panel suspect-panel">
+            <section class="panel suspect-panel monitoring-view-panel">
                 <div class="panel-header">
                     <h2>Top Suspect Process</h2>
                     <p>The intelligent system highlights the process most likely contributing to instability.</p>
@@ -181,7 +197,7 @@
                 <p id="suspect-reason" class="analysis-observation"></p>
             </section>
 
-            <section class="panel incident-history-panel">
+            <section class="panel incident-history-panel monitoring-view-panel">
                 <div class="panel-header">
                     <h2>Incident History</h2>
                     <p>Recent important monitoring events detected by the system.</p>
@@ -198,7 +214,7 @@
                 <ul id="incident-history-list" class="message-list detailed"></ul>
             </section>
 
-            <section class="panel alerts-panel">
+            <section class="panel alerts-panel monitoring-view-panel">
                 <div class="panel-header">
                     <h2>Alerts</h2>
                     <p>Early warning indications for possible instability.</p>
@@ -206,7 +222,7 @@
                 <ul id="alerts-list" class="message-list"></ul>
             </section>
 
-            <section class="panel recommendations-panel">
+            <section class="panel recommendations-panel monitoring-view-panel">
                 <div class="panel-header">
                     <h2>Recommendations</h2>
                     <p>Suggested actions based on the current monitoring results.</p>
@@ -214,7 +230,7 @@
                 <ul id="recommendations-list" class="message-list"></ul>
             </section>
 
-            <section class="panel process-panel">
+            <section class="panel process-panel monitoring-view-panel">
                 <div class="panel-header">
                     <h2>Top Processes</h2>
                     <p>Processes contributing most to current load.</p>
@@ -240,6 +256,6 @@
         </main>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}?v=20260721_labels"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v=20260728_views"></script>
 </body>
 </html>
