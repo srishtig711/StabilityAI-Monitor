@@ -31,7 +31,13 @@ def main():
             avg_process_cpu,
             max_process_cpu,
             avg_process_memory,
-            max_process_memory
+            max_process_memory,
+            cpu_delta,
+            memory_delta,
+            cpu_rolling_avg_3,
+            memory_rolling_avg_3,
+            cpu_rolling_gap_3,
+            memory_rolling_gap_3
         FROM ml_feature_samples
         ORDER BY created_at
         """
@@ -54,6 +60,12 @@ def main():
         "max_process_cpu",
         "avg_process_memory",
         "max_process_memory",
+        "cpu_delta",
+        "memory_delta",
+        "cpu_rolling_avg_3",
+        "memory_rolling_avg_3",
+        "cpu_rolling_gap_3",
+        "memory_rolling_gap_3",
     ]
 
     with EXPORT_PATH.open("w", newline="", encoding="utf-8") as csv_file:

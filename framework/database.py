@@ -141,13 +141,25 @@ def ensure_database():
             avg_process_cpu REAL NOT NULL,
             max_process_cpu REAL NOT NULL,
             avg_process_memory REAL NOT NULL,
-            max_process_memory REAL NOT NULL
+            max_process_memory REAL NOT NULL,
+            cpu_delta REAL NOT NULL DEFAULT 0,
+            memory_delta REAL NOT NULL DEFAULT 0,
+            cpu_rolling_avg_3 REAL NOT NULL DEFAULT 0,
+            memory_rolling_avg_3 REAL NOT NULL DEFAULT 0,
+            cpu_rolling_gap_3 REAL NOT NULL DEFAULT 0,
+            memory_rolling_gap_3 REAL NOT NULL DEFAULT 0
         )
         """
     )
     _ensure_column(cursor, "ml_feature_samples", "collection_label", "TEXT NOT NULL DEFAULT 'unlabeled'")
     _ensure_column(cursor, "ml_feature_samples", "monitor_cpu_percent", "REAL NOT NULL DEFAULT 0")
     _ensure_column(cursor, "ml_feature_samples", "monitor_memory_percent", "REAL NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "ml_feature_samples", "cpu_delta", "REAL NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "ml_feature_samples", "memory_delta", "REAL NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "ml_feature_samples", "cpu_rolling_avg_3", "REAL NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "ml_feature_samples", "memory_rolling_avg_3", "REAL NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "ml_feature_samples", "cpu_rolling_gap_3", "REAL NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "ml_feature_samples", "memory_rolling_gap_3", "REAL NOT NULL DEFAULT 0")
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_system_samples_created_at ON system_samples(created_at)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_process_samples_system_sample_id ON process_samples(system_sample_id)")
@@ -156,6 +168,7 @@ def ensure_database():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_collection_sessions_started_at ON collection_sessions(started_at)")
 
     _backfill_ml_feature_samples(cursor)
+    _refresh_temporal_ml_features(cursor)
 
     connection.commit()
     connection.close()
@@ -258,6 +271,114 @@ def _insert_ml_feature_sample(cursor, sample_id, snapshot):
             round(max(memory_values), 2) if memory_values else 0,
         ),
     )
+    _refresh_temporal_ml_features(cursor, sample_id)
+
+
+def _round_feature(value):
+    return round(float(value or 0), 2)
+
+
+def _temporal_features_for_rows(rows):
+    previous_cpu = None
+    previous_memory = None
+    cpu_window = []
+    memory_window = []
+    features = []
+
+    for row in rows:
+        cpu = float(row["cpu_percent"] or 0)
+        memory = float(row["memory_percent"] or 0)
+        cpu_window.append(cpu)
+        memory_window.append(memory)
+        cpu_window = cpu_window[-3:]
+        memory_window = memory_window[-3:]
+        cpu_rolling_avg = sum(cpu_window) / len(cpu_window)
+        memory_rolling_avg = sum(memory_window) / len(memory_window)
+
+        features.append(
+            (
+                _round_feature(0 if previous_cpu is None else cpu - previous_cpu),
+                _round_feature(0 if previous_memory is None else memory - previous_memory),
+                _round_feature(cpu_rolling_avg),
+                _round_feature(memory_rolling_avg),
+                _round_feature(cpu - cpu_rolling_avg),
+                _round_feature(memory - memory_rolling_avg),
+                row["id"],
+            )
+        )
+        previous_cpu = cpu
+        previous_memory = memory
+
+    return features
+
+
+def _refresh_temporal_ml_features(cursor, sample_id=None):
+    if sample_id is None:
+        mode_rows = cursor.execute(
+            """
+            SELECT DISTINCT mode
+            FROM ml_feature_samples
+            """
+        ).fetchall()
+        modes = [row["mode"] for row in mode_rows]
+    else:
+        row = cursor.execute(
+            """
+            SELECT mode
+            FROM ml_feature_samples
+            WHERE system_sample_id = ?
+            """,
+            (sample_id,),
+        ).fetchone()
+        modes = [row["mode"]] if row else []
+
+    for mode in modes:
+        if sample_id is None:
+            rows = cursor.execute(
+                """
+                SELECT id, cpu_percent, memory_percent
+                FROM ml_feature_samples
+                WHERE mode = ?
+                ORDER BY id
+                """,
+                (mode,),
+            ).fetchall()
+        else:
+            rows = cursor.execute(
+                """
+                SELECT id, cpu_percent, memory_percent
+                FROM ml_feature_samples
+                WHERE mode = ?
+                  AND id <= (
+                      SELECT id
+                      FROM ml_feature_samples
+                      WHERE system_sample_id = ?
+                  )
+                ORDER BY id DESC
+                LIMIT 3
+                """,
+                (mode, sample_id),
+            ).fetchall()
+            rows = list(reversed(rows))
+
+        update_values = _temporal_features_for_rows(rows)
+        if sample_id is not None and update_values:
+            update_values = [update_values[-1]]
+
+        cursor.executemany(
+            """
+            UPDATE ml_feature_samples
+            SET
+                cpu_delta = ?,
+                memory_delta = ?,
+                cpu_rolling_avg_3 = ?,
+                memory_rolling_avg_3 = ?,
+                cpu_rolling_gap_3 = ?,
+                memory_rolling_gap_3 = ?
+            WHERE id = ?
+            """,
+            update_values,
+        )
 
 
 def insert_snapshot(snapshot):

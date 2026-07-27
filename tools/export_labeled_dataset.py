@@ -24,6 +24,12 @@ FEATURE_COLUMNS = [
     "max_process_cpu",
     "avg_process_memory",
     "max_process_memory",
+    "cpu_delta",
+    "memory_delta",
+    "cpu_rolling_avg_3",
+    "memory_rolling_avg_3",
+    "cpu_rolling_gap_3",
+    "memory_rolling_gap_3",
 ]
 METADATA_COLUMNS = [
     "system_sample_id",

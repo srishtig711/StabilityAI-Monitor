@@ -25,6 +25,12 @@ FEATURE_COLUMNS = [
     "max_process_cpu",
     "avg_process_memory",
     "max_process_memory",
+    "cpu_delta",
+    "memory_delta",
+    "cpu_rolling_avg_3",
+    "memory_rolling_avg_3",
+    "cpu_rolling_gap_3",
+    "memory_rolling_gap_3",
 ]
 
 
@@ -35,6 +41,7 @@ def parse_args():
     parser.add_argument("--min-samples", type=int, default=20, help="Minimum labeled rows required.")
     parser.add_argument("--min-labels", type=int, default=2, help="Minimum distinct labels required.")
     parser.add_argument("--test-ratio", type=float, default=0.25, help="Per-label holdout ratio for evaluation.")
+    parser.add_argument("--neighbors", type=int, default=1, help="Neighbors used by the weighted k-nearest-neighbor classifier.")
     parser.add_argument("--model-path", type=Path, default=MODEL_PATH, help="Output model path.")
     parser.add_argument("--report-path", type=Path, default=REPORT_PATH, help="Evaluation report path.")
     return parser.parse_args()
@@ -92,30 +99,27 @@ def _apply_scaler(vectors, means, stddevs):
     ]
 
 
-def _build_centroids(vectors, labels):
-    grouped = defaultdict(list)
-    for vector, label in zip(vectors, labels):
-        grouped[label].append(vector)
-
-    centroids = {}
-    for label, label_vectors in grouped.items():
-        centroids[label] = [
-            _mean([vector[index] for vector in label_vectors])
-            for index in range(len(FEATURE_COLUMNS))
-        ]
-    return centroids
-
-
 def _distance(left, right):
     return math.sqrt(sum((left[index] - right[index]) ** 2 for index in range(len(left))))
 
 
-def _predict_label(vector, centroids):
-    return min(centroids, key=lambda label: _distance(vector, centroids[label]))
+def _predict_label(vector, trained, neighbors):
+    distances = [
+        (_distance(vector, trained_vector), label)
+        for trained_vector, label in zip(trained["scaled_vectors"], trained["labels"])
+    ]
+    distances.sort(key=lambda item: item[0])
+    nearest = distances[: max(1, min(neighbors, len(distances)))]
+    votes = Counter()
+
+    for distance, label in nearest:
+        votes[label] += 1 / (distance + 0.000001)
+
+    return votes.most_common(1)[0][0]
 
 
-def _evaluate(vectors, labels, centroids):
-    predictions = [_predict_label(vector, centroids) for vector in vectors]
+def _evaluate(vectors, labels, trained, neighbors):
+    predictions = [_predict_label(vector, trained, neighbors) for vector in vectors]
     correct = sum(1 for expected, predicted in zip(labels, predictions) if expected == predicted)
     matrix = defaultdict(Counter)
     for expected, predicted in zip(labels, predictions):
@@ -151,22 +155,20 @@ def _split_rows_by_label(rows, test_ratio):
     return train_rows, test_rows
 
 
-def _train_centroid_model(rows):
+def _train_classifier(rows):
     labels = [row["collection_label"] for row in rows]
     vectors = [_row_to_vector(row) for row in rows]
     scaled_vectors, means, stddevs = _scale_vectors(vectors)
-    centroids = _build_centroids(scaled_vectors, labels)
     return {
         "labels": labels,
         "vectors": vectors,
         "scaled_vectors": scaled_vectors,
         "means": means,
         "stddevs": stddevs,
-        "centroids": centroids,
     }
 
 
-def _evaluate_model(rows, test_ratio):
+def _evaluate_model(rows, test_ratio, neighbors):
     train_rows, test_rows = _split_rows_by_label(rows, test_ratio)
     evaluation_rows = test_rows
     evaluation_type = "holdout"
@@ -176,7 +178,7 @@ def _evaluate_model(rows, test_ratio):
         evaluation_rows = rows
         evaluation_type = "training"
 
-    trained = _train_centroid_model(train_rows)
+    trained = _train_classifier(train_rows)
     evaluation_labels = [row["collection_label"] for row in evaluation_rows]
     evaluation_vectors = [_row_to_vector(row) for row in evaluation_rows]
     scaled_evaluation_vectors = _apply_scaler(
@@ -184,7 +186,7 @@ def _evaluate_model(rows, test_ratio):
         trained["means"],
         trained["stddevs"],
     )
-    evaluation = _evaluate(scaled_evaluation_vectors, evaluation_labels, trained["centroids"])
+    evaluation = _evaluate(scaled_evaluation_vectors, evaluation_labels, trained, neighbors)
     evaluation["type"] = evaluation_type
     evaluation["train_total"] = len(train_rows)
     return evaluation
@@ -222,8 +224,10 @@ def _write_report(report_path, model, evaluation):
     report = f"""# ML Evaluation Report
 
 Generated at: {model['created_at']}
-Model type: Standard-scaled nearest-centroid classifier
+Model type: Standard-scaled supervised classifier
+Classifier: Weighted k-nearest-neighbor
 Training samples: {model['training_samples']}
+Neighbors: {model['neighbors']}
 Labels: {', '.join(labels)}
 Evaluation type: {evaluation['type']}
 Evaluation samples: {evaluation['total']}
@@ -263,16 +267,18 @@ def main():
     if len(label_counts) < args.min_labels:
         raise SystemExit(f"Need at least {args.min_labels} labels; found {len(label_counts)}.")
 
-    trained = _train_centroid_model(rows)
-    evaluation = _evaluate_model(rows, args.test_ratio)
+    trained = _train_classifier(rows)
+    evaluation = _evaluate_model(rows, args.test_ratio, args.neighbors)
 
     model = {
-        "version": "nearest-centroid-v1",
+        "version": "weighted-knn-v1",
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "feature_columns": FEATURE_COLUMNS,
         "means": trained["means"],
         "stddevs": trained["stddevs"],
-        "centroids": trained["centroids"],
+        "scaled_vectors": trained["scaled_vectors"],
+        "labels": trained["labels"],
+        "neighbors": args.neighbors,
         "label_counts": dict(label_counts),
         "training_samples": len(rows),
         "evaluation": {

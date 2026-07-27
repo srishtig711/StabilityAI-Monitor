@@ -19,6 +19,12 @@ FEATURE_COLUMNS = [
     "max_process_cpu",
     "avg_process_memory",
     "max_process_memory",
+    "cpu_delta",
+    "memory_delta",
+    "cpu_rolling_avg_3",
+    "memory_rolling_avg_3",
+    "cpu_rolling_gap_3",
+    "memory_rolling_gap_3",
 ]
 
 STABLE_LABELS = {"stable", "normal_work"}
@@ -69,6 +75,42 @@ def _euclidean_distance(left, right):
     return math.sqrt(sum((left[index] - right[index]) ** 2 for index in range(len(left))))
 
 
+def _predict_with_knn(vector, model):
+    training_vectors = model.get("scaled_vectors", [])
+    labels = model.get("labels", [])
+    neighbors = max(1, min(int(model.get("neighbors", 7)), len(training_vectors)))
+    distances = [
+        (_euclidean_distance(vector, trained_vector), label)
+        for trained_vector, label in zip(training_vectors, labels)
+    ]
+    distances.sort(key=lambda item: item[0])
+    votes = {}
+
+    for distance, label in distances[:neighbors]:
+        votes[label] = votes.get(label, 0) + 1 / (distance + 0.000001)
+
+    total_vote = sum(votes.values()) or 1
+    predicted_label = max(votes, key=votes.get)
+    confidence = round((votes[predicted_label] / total_vote) * 100, 2)
+    return predicted_label, confidence
+
+
+def _predict_with_centroids(vector, model):
+    centroids = model.get("centroids", {})
+    distances = {
+        label: _euclidean_distance(vector, centroid)
+        for label, centroid in centroids.items()
+    }
+    predicted_label = min(distances, key=distances.get)
+    inverse_distances = {
+        label: 1 / (distance + 0.000001)
+        for label, distance in distances.items()
+    }
+    total_inverse = sum(inverse_distances.values()) or 1
+    confidence = round((inverse_distances[predicted_label] / total_inverse) * 100, 2)
+    return predicted_label, confidence
+
+
 def _label_to_state(label):
     if label in CRITICAL_LABELS:
         return "Critical"
@@ -93,26 +135,18 @@ def predict_from_feature_row(row, rule_state=None):
         return _default_prediction("No latest ML feature sample is available for prediction.")
 
     feature_columns = model.get("feature_columns", FEATURE_COLUMNS)
-    centroids = model.get("centroids", {})
-    if not centroids:
-        return _default_prediction("The saved ML model has no class centroids.")
+    if not model.get("scaled_vectors") and not model.get("centroids"):
+        return _default_prediction("The saved ML model has no classifier data.")
 
     vector = _standardize(
         _feature_vector(row, feature_columns),
         model.get("means", [0.0] * len(feature_columns)),
         model.get("stddevs", [1.0] * len(feature_columns)),
     )
-    distances = {
-        label: _euclidean_distance(vector, centroid)
-        for label, centroid in centroids.items()
-    }
-    predicted_label = min(distances, key=distances.get)
-    inverse_distances = {
-        label: 1 / (distance + 0.000001)
-        for label, distance in distances.items()
-    }
-    total_inverse = sum(inverse_distances.values()) or 1
-    confidence = round((inverse_distances[predicted_label] / total_inverse) * 100, 2)
+    if model.get("scaled_vectors"):
+        predicted_label, confidence = _predict_with_knn(vector, model)
+    else:
+        predicted_label, confidence = _predict_with_centroids(vector, model)
     ml_state = _label_to_state(predicted_label)
 
     return {
