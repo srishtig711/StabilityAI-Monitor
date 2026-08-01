@@ -6,6 +6,15 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
+try:
+    from sklearn.ensemble import ExtraTreesClassifier, GradientBoostingClassifier, RandomForestClassifier
+    from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
+    from sklearn.model_selection import train_test_split
+
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT_DIR / "monitoring.db"
@@ -212,10 +221,159 @@ def _build_classification_metrics(labels, evaluation):
     return metrics
 
 
+def _split_indices_chronological(labels, test_ratio):
+    grouped = defaultdict(list)
+    for index, label in enumerate(labels):
+        grouped[label].append(index)
+
+    train_indices = []
+    test_indices = []
+    normalized_ratio = min(max(test_ratio, 0.0), 0.5)
+
+    for label_indices in grouped.values():
+        test_count = max(1, round(len(label_indices) * normalized_ratio))
+        test_count = min(test_count, len(label_indices) - 2) if len(label_indices) >= 4 else 0
+        if test_count <= 0:
+            train_indices.extend(label_indices)
+            continue
+        train_indices.extend(label_indices[:-test_count])
+        test_indices.extend(label_indices[-test_count:])
+
+    return train_indices, test_indices
+
+
+def _sklearn_matrix(labels, expected, predicted):
+    matrix_values = confusion_matrix(expected, predicted, labels=labels)
+    matrix = defaultdict(Counter)
+    for row_index, expected_label in enumerate(labels):
+        for column_index, predicted_label in enumerate(labels):
+            matrix[expected_label][predicted_label] = int(matrix_values[row_index][column_index])
+    return matrix
+
+
+def _sklearn_metric_rows(labels, expected, predicted):
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        expected,
+        predicted,
+        labels=labels,
+        zero_division=0,
+    )
+    return {
+        label: {
+            "precision": round(float(precision[index]) * 100, 2),
+            "recall": round(float(recall[index]) * 100, 2),
+            "f1": round(float(f1[index]) * 100, 2),
+        }
+        for index, label in enumerate(labels)
+    }
+
+
+def _evaluate_sklearn_model(model, vectors, labels, test_indices, evaluation_type):
+    expected = [labels[index] for index in test_indices]
+    predicted = model.predict([vectors[index] for index in test_indices])
+    sorted_labels = sorted(set(labels))
+    correct = int(sum(1 for left, right in zip(expected, predicted) if left == right))
+    return {
+        "type": evaluation_type,
+        "accuracy": round(float(accuracy_score(expected, predicted)) * 100, 2) if expected else 0,
+        "total": len(expected),
+        "correct": correct,
+        "matrix": _sklearn_matrix(sorted_labels, expected, predicted),
+        "metrics": _sklearn_metric_rows(sorted_labels, expected, predicted),
+    }
+
+
+def _average_random_stratified_score(model_factory, vectors, labels, test_ratio, repeats=10):
+    scores = []
+    normalized_ratio = min(max(test_ratio, 0.05), 0.5)
+    indices = list(range(len(labels)))
+
+    for seed in range(repeats):
+        train_indices, test_indices = train_test_split(
+            indices,
+            test_size=normalized_ratio,
+            random_state=seed,
+            stratify=labels,
+        )
+        model = model_factory()
+        model.fit([vectors[index] for index in train_indices], [labels[index] for index in train_indices])
+        predicted = model.predict([vectors[index] for index in test_indices])
+        expected = [labels[index] for index in test_indices]
+        scores.append(float(accuracy_score(expected, predicted)) * 100)
+
+    return {
+        "type": f"random_stratified_{repeats}x",
+        "accuracy": round(sum(scores) / len(scores), 2),
+        "min_accuracy": round(min(scores), 2),
+        "max_accuracy": round(max(scores), 2),
+        "repeats": repeats,
+    }
+
+
+def _sklearn_model_factories():
+    return {
+        "Gradient Boosting": lambda: GradientBoostingClassifier(random_state=42),
+        "Random Forest": lambda: RandomForestClassifier(
+            n_estimators=300,
+            random_state=42,
+            class_weight="balanced",
+            min_samples_leaf=2,
+        ),
+        "Extra Trees": lambda: ExtraTreesClassifier(
+            n_estimators=400,
+            random_state=42,
+            class_weight="balanced",
+            min_samples_leaf=1,
+        ),
+    }
+
+
+def _train_sklearn_model(rows, test_ratio):
+    vectors = [_row_to_vector(row) for row in rows]
+    labels = [row["collection_label"] for row in rows]
+    train_indices, test_indices = _split_indices_chronological(labels, test_ratio)
+    factories = _sklearn_model_factories()
+    comparison = []
+    trained_for_comparison = {}
+
+    for name, factory in factories.items():
+        model = factory()
+        model.fit([vectors[index] for index in train_indices], [labels[index] for index in train_indices])
+        chronological = _evaluate_sklearn_model(model, vectors, labels, test_indices, "chronological_holdout")
+        random_score = _average_random_stratified_score(factory, vectors, labels, test_ratio)
+        comparison.append(
+            {
+                "name": name,
+                "chronological_accuracy": chronological["accuracy"],
+                "random_accuracy": random_score["accuracy"],
+                "random_min_accuracy": random_score["min_accuracy"],
+                "random_max_accuracy": random_score["max_accuracy"],
+            }
+        )
+        trained_for_comparison[name] = (model, chronological, random_score)
+
+    best_name = max(
+        comparison,
+        key=lambda item: (item["chronological_accuracy"], item["random_accuracy"]),
+    )["name"]
+    final_model = factories[best_name]()
+    final_model.fit(vectors, labels)
+    selected_model, chronological_evaluation, random_evaluation = trained_for_comparison[best_name]
+
+    return {
+        "version": "sklearn-gradient-boosting-v1" if best_name == "Gradient Boosting" else f"sklearn-{best_name.lower().replace(' ', '-')}-v1",
+        "classifier": best_name,
+        "estimator": final_model,
+        "evaluation": chronological_evaluation,
+        "random_evaluation": random_evaluation,
+        "comparison": comparison,
+    }
+
+
 def _write_report(report_path, model, evaluation):
     report_path.parent.mkdir(parents=True, exist_ok=True)
     labels = sorted(model["label_counts"])
-    metrics = _build_classification_metrics(labels, evaluation)
+    metrics = evaluation.get("metrics") or _build_classification_metrics(labels, evaluation)
     matrix_lines = []
     for expected in labels:
         cells = [str(evaluation["matrix"][expected][predicted]) for predicted in labels]
@@ -225,13 +383,13 @@ def _write_report(report_path, model, evaluation):
 
 Generated at: {model['created_at']}
 Model type: Standard-scaled supervised classifier
-Classifier: Weighted k-nearest-neighbor
+Classifier: {model['classifier']}
 Training samples: {model['training_samples']}
-Neighbors: {model['neighbors']}
 Labels: {', '.join(labels)}
 Evaluation type: {evaluation['type']}
 Evaluation samples: {evaluation['total']}
 Evaluation accuracy: {evaluation['accuracy']}% ({evaluation['correct']}/{evaluation['total']})
+Random stratified accuracy: {model.get('random_evaluation', {}).get('accuracy', 'n/a')}%
 
 ## Label Counts
 
@@ -248,6 +406,12 @@ Evaluation accuracy: {evaluation['accuracy']}% ({evaluation['correct']}/{evaluat
 | Label | Precision % | Recall % | F1 % |
 | --- | --- | --- | --- |
 {chr(10).join(f"| {label} | {metrics[label]['precision']} | {metrics[label]['recall']} | {metrics[label]['f1']} |" for label in labels)}
+
+## Model Comparison
+
+| Model | Chronological Holdout % | Random Stratified Avg % | Random Min % | Random Max % |
+| --- | --- | --- | --- | --- |
+{chr(10).join(f"| {item['name']} | {item['chronological_accuracy']} | {item['random_accuracy']} | {item['random_min_accuracy']} | {item['random_max_accuracy']} |" for item in model.get('comparison', []))}
 
 ## Feature Columns
 
@@ -267,20 +431,28 @@ def main():
     if len(label_counts) < args.min_labels:
         raise SystemExit(f"Need at least {args.min_labels} labels; found {len(label_counts)}.")
 
-    trained = _train_classifier(rows)
-    evaluation = _evaluate_model(rows, args.test_ratio, args.neighbors)
+    if SKLEARN_AVAILABLE:
+        sklearn_result = _train_sklearn_model(rows, args.test_ratio)
+        evaluation = sklearn_result["evaluation"]
+        random_evaluation = sklearn_result["random_evaluation"]
+        comparison = sklearn_result["comparison"]
+        classifier = sklearn_result["classifier"]
+    else:
+        trained = _train_classifier(rows)
+        evaluation = _evaluate_model(rows, args.test_ratio, args.neighbors)
+        random_evaluation = {}
+        comparison = []
+        classifier = "Weighted k-nearest-neighbor"
 
     model = {
-        "version": "weighted-knn-v1",
+        "version": sklearn_result["version"] if SKLEARN_AVAILABLE else "weighted-knn-v1",
         "created_at": datetime.now().isoformat(timespec="seconds"),
         "feature_columns": FEATURE_COLUMNS,
-        "means": trained["means"],
-        "stddevs": trained["stddevs"],
-        "scaled_vectors": trained["scaled_vectors"],
-        "labels": trained["labels"],
-        "neighbors": args.neighbors,
+        "classifier": classifier,
         "label_counts": dict(label_counts),
         "training_samples": len(rows),
+        "random_evaluation": random_evaluation,
+        "comparison": comparison,
         "evaluation": {
             "accuracy": evaluation["accuracy"],
             "total": evaluation["total"],
@@ -288,6 +460,14 @@ def main():
             "type": evaluation["type"],
         },
     }
+    if SKLEARN_AVAILABLE:
+        model["estimator"] = sklearn_result["estimator"]
+    else:
+        model["means"] = trained["means"]
+        model["stddevs"] = trained["stddevs"]
+        model["scaled_vectors"] = trained["scaled_vectors"]
+        model["labels"] = trained["labels"]
+        model["neighbors"] = args.neighbors
 
     args.model_path.parent.mkdir(parents=True, exist_ok=True)
     with args.model_path.open("wb") as model_file:

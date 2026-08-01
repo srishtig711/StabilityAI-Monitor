@@ -136,16 +136,28 @@ def predict_from_feature_row(row, rule_state=None):
 
     feature_columns = model.get("feature_columns", FEATURE_COLUMNS)
     if not model.get("scaled_vectors") and not model.get("centroids"):
-        return _default_prediction("The saved ML model has no classifier data.")
+        if not model.get("estimator"):
+            return _default_prediction("The saved ML model has no classifier data.")
 
-    vector = _standardize(
-        _feature_vector(row, feature_columns),
-        model.get("means", [0.0] * len(feature_columns)),
-        model.get("stddevs", [1.0] * len(feature_columns)),
-    )
-    if model.get("scaled_vectors"):
-        predicted_label, confidence = _predict_with_knn(vector, model)
+    raw_vector = _feature_vector(row, feature_columns)
+    if model.get("estimator"):
+        estimator = model["estimator"]
+        predicted_label = str(estimator.predict([raw_vector])[0])
+        if hasattr(estimator, "predict_proba"):
+            probabilities = estimator.predict_proba([raw_vector])[0]
+            classes = [str(label) for label in estimator.classes_]
+            confidence = round(float(probabilities[classes.index(predicted_label)]) * 100, 2)
+        else:
+            confidence = 0
     else:
+        vector = _standardize(
+            raw_vector,
+            model.get("means", [0.0] * len(feature_columns)),
+            model.get("stddevs", [1.0] * len(feature_columns)),
+        )
+    if not model.get("estimator") and model.get("scaled_vectors"):
+        predicted_label, confidence = _predict_with_knn(vector, model)
+    elif not model.get("estimator"):
         predicted_label, confidence = _predict_with_centroids(vector, model)
     ml_state = _label_to_state(predicted_label)
 
