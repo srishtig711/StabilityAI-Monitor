@@ -161,8 +161,6 @@ The current baseline is a standard-scaled nearest-centroid classifier. It was ch
 
 If no trained model exists yet, the dashboard shows **Not trained** in the ML Classification section while the rule-based system continues working normally.
 
-## 7th-Semester Roadmap
-
 - Keep rule-based analysis as the baseline.
 - Collect real labeled samples from normal usage, app workloads, and controlled workloads.
 - Train and evaluate the ML classifier on numeric resource/process-summary features.
