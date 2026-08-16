@@ -22,10 +22,31 @@ if errorlevel 1 (
 )
 
 echo Starting Proactive System Stability Monitoring Framework...
-start "System Stability Monitor Server" cmd /k "cd /d ""%~dp0"" && "".venv\Scripts\python.exe"" app.py"
-ping -n 4 127.0.0.1 >nul
+curl.exe --silent --fail --max-time 2 http://127.0.0.1:5000/ >nul 2>nul
+if errorlevel 1 (
+    start "System Stability Monitor Server" cmd /k call "%~dp0start_server.bat"
+)
+
+echo Waiting for the local server to become ready...
+set "SERVER_READY="
+for /l %%i in (1,1,30) do (
+    curl.exe --silent --fail --max-time 2 http://127.0.0.1:5000/ >nul 2>nul
+    if not errorlevel 1 (
+        set "SERVER_READY=1"
+        goto server_ready
+    )
+    ping -n 2 127.0.0.1 >nul
+)
+
+:server_ready
+if not defined SERVER_READY (
+    echo The dashboard server did not start correctly.
+    echo Check the "System Stability Monitor Server" window for the error message.
+    pause
+    exit /b 1
+)
+
 start "" http://127.0.0.1:5000
 
 echo Dashboard opened at http://127.0.0.1:5000
 echo Keep the "System Stability Monitor Server" window open while using the dashboard.
-ping -n 6 127.0.0.1 >nul

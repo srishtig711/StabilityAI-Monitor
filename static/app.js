@@ -11,6 +11,52 @@ let dashboardIntervalId;
 let currentDashboardView = "monitoring";
 
 function createChart(context, label, color) {
+    if (typeof Chart === "undefined") {
+        const canvas = context;
+        const drawingContext = canvas.getContext("2d");
+        const fallbackChart = {
+            data: {
+                labels: [],
+                datasets: [{ label, data: [] }]
+            },
+            update() {
+                const parent = canvas.parentElement;
+                const width = parent ? parent.clientWidth : 420;
+                const height = parent ? parent.clientHeight : 220;
+                canvas.width = Math.max(width, 240);
+                canvas.height = Math.max(height, 160);
+                drawingContext.clearRect(0, 0, canvas.width, canvas.height);
+                drawingContext.fillStyle = "#9fb0c7";
+                drawingContext.font = "13px Arial";
+                drawingContext.fillText(`${label} chart unavailable offline`, 14, 24);
+
+                const values = this.data.datasets[0].data;
+                if (!values.length) {
+                    return;
+                }
+
+                const padding = 28;
+                const plotWidth = canvas.width - padding * 2;
+                const plotHeight = canvas.height - padding * 2;
+                drawingContext.strokeStyle = color;
+                drawingContext.lineWidth = 2;
+                drawingContext.beginPath();
+                values.forEach((value, index) => {
+                    const x = padding + (plotWidth * index) / Math.max(values.length - 1, 1);
+                    const y = canvas.height - padding - (plotHeight * Math.min(Math.max(value, 0), 100)) / 100;
+                    if (index === 0) {
+                        drawingContext.moveTo(x, y);
+                    } else {
+                        drawingContext.lineTo(x, y);
+                    }
+                });
+                drawingContext.stroke();
+            }
+        };
+
+        return fallbackChart;
+    }
+
     return new Chart(context, {
         type: "line",
         data: {
