@@ -3,18 +3,50 @@ setlocal
 
 cd /d "%~dp0"
 
-if not exist ".venv\Scripts\python.exe" (
-    echo Creating virtual environment...
-    python -m venv .venv
-    if errorlevel 1 (
-        echo Failed to create the virtual environment. Make sure Python is installed and added to PATH.
-        pause
-        exit /b 1
+set "VENV_DIR=.runtime"
+set "VENV_PYTHON=%VENV_DIR%\Scripts\python.exe"
+
+rem This runtime folder is deliberately separate from the original .venv.
+rem The old .venv may be locked by an editor or tied to a removed Python installation.
+if exist "%VENV_PYTHON%" (
+    "%VENV_PYTHON%" --version >nul 2>nul
+    if not errorlevel 1 goto environment_ready
+    echo The local runtime is invalid. Rename or remove the .runtime folder, then run this file again.
+    pause
+    exit /b 1
+)
+
+set "SYSTEM_PYTHON="
+if exist "%USERPROFILE%\AppData\Local\Programs\Python\Python313\python.exe" (
+    set "SYSTEM_PYTHON=%USERPROFILE%\AppData\Local\Programs\Python\Python313\python.exe"
+)
+
+if not defined SYSTEM_PYTHON (
+    for %%P in (python.exe) do (
+        %%P --version >nul 2>nul
+        if not errorlevel 1 set "SYSTEM_PYTHON=%%~$PATH:P"
     )
 )
 
+if not defined SYSTEM_PYTHON (
+    echo Python was not found. Install Python 3.11 or later from https://www.python.org/downloads/
+    echo During installation, select "Add Python to PATH", then run this file again.
+    pause
+    exit /b 1
+)
+
+echo Creating virtual environment...
+"%SYSTEM_PYTHON%" -m venv "%VENV_DIR%"
+if errorlevel 1 (
+    echo Failed to create the virtual environment.
+    pause
+    exit /b 1
+)
+
+:environment_ready
+
 echo Installing dependencies...
-".venv\Scripts\python.exe" -m pip install -r requirements.txt >nul
+"%VENV_PYTHON%" -m pip install -r requirements.txt >nul
 if errorlevel 1 (
     echo Failed to install dependencies.
     pause
