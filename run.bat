@@ -53,10 +53,10 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Starting Proactive System Stability Monitoring Framework...
+echo Starting StabilityAI Monitor...
 curl.exe --silent --fail --max-time 2 http://127.0.0.1:5000/ >nul 2>nul
 if errorlevel 1 (
-    start "System Stability Monitor Server" cmd /k call "%~dp0start_server.bat"
+    start "StabilityAI Monitor Server" cmd /k call "%~dp0start_server.bat"
 )
 
 echo Waiting for the local server to become ready...
@@ -73,7 +73,7 @@ for /l %%i in (1,1,30) do (
 :server_ready
 if not defined SERVER_READY (
     echo The dashboard server did not start correctly.
-    echo Check the "System Stability Monitor Server" window for the error message.
+    echo Check the "StabilityAI Monitor Server" window for the error message.
     pause
     exit /b 1
 )
@@ -81,4 +81,4 @@ if not defined SERVER_READY (
 start "" http://127.0.0.1:5000
 
 echo Dashboard opened at http://127.0.0.1:5000
-echo Keep the "System Stability Monitor Server" window open while using the dashboard.
+echo Keep the "StabilityAI Monitor Server" window open while using the dashboard.

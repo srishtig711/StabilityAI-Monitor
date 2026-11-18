@@ -9,7 +9,7 @@ if not exist ".venv\Scripts\pythonw.exe" (
     exit /b 1
 )
 
-schtasks /Create /TN "System Stability Monitor" /SC ONLOGON /TR "\"%CD%\.venv\Scripts\pythonw.exe\" \"%CD%\app.py\"" /RL LIMITED /F
+schtasks /Create /TN "StabilityAI Monitor" /SC ONLOGON /TR "\"%CD%\.runtime\Scripts\pythonw.exe\" \"%CD%\app.py\"" /RL LIMITED /F
 
 if errorlevel 1 (
     echo Failed to register startup task. Try running this file as administrator.

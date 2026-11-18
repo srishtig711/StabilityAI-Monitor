@@ -46,7 +46,7 @@ def build_report_content(payload):
     monitoring_mode = payload["monitoring_mode"]["current"]
     incident_summary = payload["incident_summary"]
 
-    return f"""# Proactive System Stability Monitoring Report
+    return f"""# StabilityAI Monitor Report
 
 Generated at: {datetime.now().isoformat(timespec="seconds")}
 Monitoring mode: {monitoring_mode['label']}

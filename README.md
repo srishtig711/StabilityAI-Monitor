@@ -1,4 +1,4 @@
-# Proactive System Stability Monitoring Framework
+# StabilityAI Monitor
 
 This project implements a proactive system monitoring framework using Python, Flask, SQLite, `psutil`, HTML, CSS, JavaScript, and Chart.js.
 

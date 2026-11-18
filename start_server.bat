@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 
-echo Starting Flask server at http://127.0.0.1:5000
+echo Starting StabilityAI Monitor at http://127.0.0.1:5000
 ".runtime\Scripts\python.exe" app.py
 
 echo.
