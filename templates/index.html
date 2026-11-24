@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StabilityAI Monitor</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20261125_hero_flow">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20261125_action_plan">
 </head>
 <body>
     <div class="page-shell">
@@ -56,6 +56,18 @@
                 <div class="panel-header">
                     <h2 id="incident-title">Waiting for monitoring data</h2>
                     <p id="incident-narrative">The analyst summary will appear after enough samples are collected.</p>
+                </div>
+            </section>
+
+            <section class="panel solution-panel monitoring-view-panel">
+                <div class="panel-header">
+                    <h2>Proactive Stability Plan</h2>
+                    <p id="action-plan-status">Waiting for monitoring data</p>
+                </div>
+                <div class="action-grid">
+                    <article class="action-card"><span>Likely Cause</span><p id="action-plan-cause">Waiting for system analysis.</p></article>
+                    <article class="action-card"><span>Do Now</span><p id="action-plan-action">Waiting for system analysis.</p></article>
+                    <article class="action-card"><span>Prevent Next</span><p id="action-plan-prevention">Waiting for system analysis.</p></article>
                 </div>
             </section>
 
@@ -269,6 +281,6 @@
         </main>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}?v=20261125_hero_flow"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v=20261125_action_plan"></script>
 </body>
 </html>

@@ -547,6 +547,10 @@ async function fetchDashboard(options = {}) {
     if (!readingPanelsLocked) {
         setText("incident-title", payload.incident_summary.title ?? "Waiting for monitoring data");
         setText("incident-narrative", payload.incident_summary.narrative ?? "");
+        setText("action-plan-status", payload.action_plan?.status ?? "Waiting for monitoring data");
+        setText("action-plan-cause", payload.action_plan?.cause ?? "Waiting for system analysis.");
+        setText("action-plan-action", payload.action_plan?.action ?? "Waiting for system analysis.");
+        setText("action-plan-prevention", payload.action_plan?.prevention ?? "Waiting for system analysis.");
         setText("intelligence-explanation", payload.intelligence.explanation ?? "");
         setText("prediction-message", payload.intelligence.prediction.message ?? "");
         setText("ml-comparison", mlPrediction.agreement ?? mlPrediction.message ?? "");

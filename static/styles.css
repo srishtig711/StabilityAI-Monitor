@@ -243,13 +243,40 @@ h1 {
 
 .panel { padding: 22px; }
 
-.incident-panel, .metrics-panel, .chart-panel, .process-panel, .analysis-breakdown-panel, .intelligence-panel, .ml-panel, .collection-control-panel, .data-readiness-panel, .collection-session-panel, .suspect-panel, .incident-history-panel { grid-column: span 12; }
+.incident-panel, .solution-panel, .metrics-panel, .chart-panel, .process-panel, .analysis-breakdown-panel, .intelligence-panel, .ml-panel, .collection-control-panel, .data-readiness-panel, .collection-session-panel, .suspect-panel, .incident-history-panel { grid-column: span 12; }
 .analysis-panel, .alerts-panel, .recommendations-panel { grid-column: span 4; }
 
 .incident-panel {
     background:
         linear-gradient(135deg, rgba(34, 211, 238, 0.12), rgba(94, 234, 212, 0.06)),
         var(--panel);
+}
+
+.action-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.action-card {
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(94, 234, 212, 0.18);
+    background: rgba(15, 23, 42, 0.7);
+}
+
+.action-card span {
+    color: var(--accent);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.action-card p {
+    margin: 10px 0 0;
+    color: var(--muted);
+    line-height: 1.5;
 }
 
 .panel-header h2 {
@@ -404,6 +431,7 @@ tbody tr:hover { background: rgba(30, 41, 59, 0.55); }
 @media (max-width: 960px) {
     .hero { grid-template-columns: 1fr; }
     .analysis-panel, .alerts-panel, .recommendations-panel { grid-column: span 12; }
+    .action-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {

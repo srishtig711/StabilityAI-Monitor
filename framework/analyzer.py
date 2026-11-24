@@ -209,6 +209,36 @@ def _build_recommendations(alerts, latest, risk, intelligence, ml_prediction):
     return recommendations
 
 
+def _build_action_plan(recommendations, intelligence, ml_prediction):
+    ml_risk = float(ml_prediction.get("ml_risk", 0))
+    predicted_class = str(ml_prediction.get("predicted_class", "stable")).replace("_", " ")
+    suspect = intelligence["process"]["top_suspect"]
+
+    if ml_risk >= 75:
+        status = "Immediate action recommended"
+        prevention = "Reduce non-essential workload now, then keep monitoring until the ML risk returns to a low level."
+    elif ml_risk >= 45:
+        status = "Early intervention recommended"
+        prevention = "Reduce avoidable workload and watch the next monitoring samples for sustained pressure."
+    else:
+        status = "No immediate action needed"
+        prevention = "Continue normal use while the monitor watches for early changes from the learned stable baseline."
+
+    if suspect["display_name"] != "None":
+        cause = f"Likely pressure source: {suspect['display_name']} (PID {suspect['pid']})."
+    elif predicted_class in {"stable", "normal work"}:
+        cause = "No abnormal process pressure is currently detected."
+    else:
+        cause = f"The ML model detected a {predicted_class} pattern without one dominant process source."
+
+    return {
+        "status": status,
+        "cause": cause,
+        "action": recommendations[0] if recommendations else "Continue observing the next few monitoring samples.",
+        "prevention": prevention,
+    }
+
+
 def _build_observation(risk, intelligence):
     if intelligence["health"]["classification"] == "Critical":
         return "The system shows severe instability risk and the learned baseline confirms strongly abnormal behavior."
@@ -596,6 +626,12 @@ def build_dashboard_payload(incident_filter="all"):
                 }
             ],
             "recommendations": ["Use the refresh button after the first collection cycle."],
+            "action_plan": {
+                "status": "Waiting for monitoring data",
+                "cause": "The monitor needs its first system samples before it can identify pressure sources.",
+                "action": "Start monitoring and return after the first collection cycle.",
+                "prevention": "Once data is available, StabilityAI Monitor will compare live behavior with its learned baseline.",
+            },
             "processes": [],
             "analysis": {
                 "cpu_trend": "No trend available",
@@ -676,6 +712,7 @@ def build_dashboard_payload(incident_filter="all"):
     ml_prediction = predict_from_feature_row(latest_ml_features, rule_state=summary["health_classification"])
     alerts = _detect_alerts(samples, risk, intelligence, ml_prediction)
     recommendations = _build_recommendations(alerts, latest, risk, intelligence, ml_prediction)
+    action_plan = _build_action_plan(recommendations, intelligence, ml_prediction)
 
     incident_window_start = _incident_window_start(samples)
     derived_incident_history = _filter_incidents_to_window(
@@ -725,6 +762,7 @@ def build_dashboard_payload(incident_filter="all"):
             }
         ],
         "recommendations": recommendations,
+        "action_plan": action_plan,
         "processes": formatted_processes,
         "analysis": {
             "cpu_trend": _trend_label(cpu_values, CPU_HIGH_THRESHOLD),
