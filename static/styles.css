@@ -57,36 +57,28 @@ h1 {
 
 .hero-copy, .panel-header p, .analysis-observation, .message-list li { color: var(--muted); }
 
-.hero-telemetry {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(100px, 1fr));
-    gap: 24px 32px;
-    max-width: 520px;
+.hero-flow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
     margin-top: 32px;
 }
 
-.hero-telemetry p {
+.hero-flow span {
     margin: 0;
-    display: grid;
-    gap: 6px;
-}
-
-.hero-telemetry span {
-    color: var(--muted);
-    font-size: 0.82rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.hero-telemetry strong {
     color: var(--text);
-    font-size: 1.75rem;
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(94, 234, 212, 0.26);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.86rem;
+    font-weight: 600;
 }
 
-@media (max-width: 640px) {
-    .hero-telemetry {
-        grid-template-columns: repeat(2, minmax(100px, 1fr));
-    }
+.hero-flow b {
+    color: var(--accent);
+    font-size: 1.1rem;
 }
 
 .hero-card, .panel {

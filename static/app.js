@@ -487,12 +487,6 @@ async function fetchDashboard(options = {}) {
     setText("cpu-usage", `${payload.summary.cpu_percent}%`);
     setText("memory-usage", `${payload.summary.memory_percent}%`);
     setText("process-count", payload.summary.total_processes);
-    setText("hero-cpu-usage", `${payload.summary.cpu_percent}%`);
-    setText("hero-memory-usage", `${payload.summary.memory_percent}%`);
-    setText("hero-process-count", payload.summary.total_processes);
-    setText("hero-rule-risk", payload.summary.risk_score);
-    setText("hero-anomaly-score", payload.summary.anomaly_score ?? 0);
-    setText("hero-last-updated", formatRefreshTime(payload.summary.latest_sample_time));
     setText("health-classification", payload.summary.health_classification ?? "Stable");
     setText("anomaly-score", payload.summary.anomaly_score ?? 0);
     setText("high-cpu-processes", payload.summary.high_cpu_processes ?? 0);

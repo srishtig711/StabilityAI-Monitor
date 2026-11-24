@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StabilityAI Monitor</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20261125_hero_summary">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20261125_hero_flow">
 </head>
 <body>
     <div class="page-shell">
@@ -16,13 +16,12 @@
                     An ML-first local monitor that turns CPU, memory, and process telemetry into a stability
                     decision, early warning, and actionable next step.
                 </p>
-                <div class="hero-telemetry" aria-label="Live telemetry summary">
-                    <p><span>CPU</span><strong id="hero-cpu-usage">0%</strong></p>
-                    <p><span>Memory</span><strong id="hero-memory-usage">0%</strong></p>
-                    <p><span>Processes</span><strong id="hero-process-count">0</strong></p>
-                    <p><span>Rule Risk</span><strong id="hero-rule-risk">0</strong></p>
-                    <p><span>Anomaly</span><strong id="hero-anomaly-score">0</strong></p>
-                    <p><span>Updated</span><strong id="hero-last-updated">--</strong></p>
+                <div class="hero-flow" aria-label="ML monitoring flow">
+                    <span>System Telemetry</span>
+                    <b aria-hidden="true">&#8594;</b>
+                    <span>ML Classification</span>
+                    <b aria-hidden="true">&#8594;</b>
+                    <span>Early Guidance</span>
                 </div>
             </div>
             <div class="hero-card">
@@ -270,6 +269,6 @@
         </main>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}?v=20261125_hero_summary"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v=20261125_hero_flow"></script>
 </body>
 </html>
