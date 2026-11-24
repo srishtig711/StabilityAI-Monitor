@@ -29,6 +29,8 @@ FEATURE_COLUMNS = [
 
 STABLE_LABELS = {"stable", "normal_work"}
 CRITICAL_LABELS = {"critical"}
+_cached_model = None
+_model_load_attempted = False
 
 
 def _default_prediction(reason):
@@ -43,14 +45,27 @@ def _default_prediction(reason):
 
 
 def _load_model():
+    global _cached_model, _model_load_attempted
+
+    if _model_load_attempted:
+        return _cached_model
+
+    _model_load_attempted = True
     if not MODEL_PATH.exists():
         return None
 
     try:
         with MODEL_PATH.open("rb") as model_file:
-            return pickle.load(model_file)
+            _cached_model = pickle.load(model_file)
     except (OSError, pickle.PickleError, EOFError, AttributeError, ValueError):
-        return None
+        _cached_model = None
+
+    return _cached_model
+
+
+def warm_model_cache():
+    """Load the model before the browser opens, avoiding a slow first dashboard request."""
+    return _load_model()
 
 
 def _feature_vector(row, feature_columns=None):

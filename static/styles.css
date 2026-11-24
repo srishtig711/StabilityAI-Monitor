@@ -16,7 +16,7 @@
 
 body {
     margin: 0;
-    font-family: "DM Sans", sans-serif;
+    font-family: "Segoe UI", Arial, sans-serif;
     background:
         radial-gradient(circle at top left, rgba(34, 211, 238, 0.18), transparent 34%),
         radial-gradient(circle at top right, rgba(94, 234, 212, 0.14), transparent 30%),
@@ -47,7 +47,7 @@ body {
     font-size: 0.8rem;
 }
 
-h1, h2, h3, strong { font-family: "Space Grotesk", sans-serif; }
+h1, h2, h3, strong { font-family: "Segoe UI", Arial, sans-serif; }
 
 h1 {
     margin: 0;

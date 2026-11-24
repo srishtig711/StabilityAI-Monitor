@@ -28,7 +28,7 @@ function createChart(context, label, color) {
                 drawingContext.clearRect(0, 0, canvas.width, canvas.height);
                 drawingContext.fillStyle = "#9fb0c7";
                 drawingContext.font = "13px Arial";
-                drawingContext.fillText(`${label} chart unavailable offline`, 14, 24);
+                drawingContext.fillText(label, 14, 24);
 
                 const values = this.data.datasets[0].data;
                 if (!values.length) {
@@ -406,8 +406,15 @@ async function fetchDashboard(options = {}) {
         return;
     }
 
-    const response = await fetch(`/api/dashboard?incident_filter=${encodeURIComponent(currentIncidentFilter)}&_=${Date.now()}`);
-    const payload = await response.json();
+    try {
+        const response = await fetch(`/api/dashboard?incident_filter=${encodeURIComponent(currentIncidentFilter)}&_=${Date.now()}`);
+        if (!response.ok) {
+            throw new Error(`Dashboard request failed with status ${response.status}`);
+        }
+        const payload = await response.json();
+        if (!payload.summary || !payload.monitoring_mode || !payload.collection_label) {
+            throw new Error("Dashboard response is incomplete");
+        }
 
     setText("cpu-usage", `${payload.summary.cpu_percent}%`);
     setText("memory-usage", `${payload.summary.memory_percent}%`);
@@ -489,7 +496,20 @@ async function fetchDashboard(options = {}) {
     }
 
     renderProcesses(payload.processes);
-    updateCharts(payload.charts);
+        updateCharts(payload.charts);
+        if (!liveUpdatesPaused) {
+            updateLiveUpdateUi();
+        }
+        return true;
+    } catch (error) {
+        const status = document.getElementById("live-update-status");
+        if (status && !liveUpdatesPaused) {
+            status.textContent = "Connecting to local monitor... retrying automatically";
+            status.className = "live-update-status paused";
+        }
+        console.warn("Dashboard refresh failed; retrying automatically.", error);
+        return false;
+    }
 }
 
 async function changeMode(event) {
@@ -584,8 +604,8 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     updateLiveUpdateUi();
     setDashboardView("monitoring");
-    await fetchDashboard({ force: true });
     dashboardIntervalId = window.setInterval(() => {
         fetchDashboard();
     }, 5000);
+    await fetchDashboard({ force: true });
 });

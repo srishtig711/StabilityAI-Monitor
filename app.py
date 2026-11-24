@@ -7,6 +7,7 @@ from framework.analyzer import build_dashboard_payload
 from framework.collector import snapshot_system
 from framework.database import ensure_database
 from framework.labels import get_label_details, set_current_label
+from framework.ml_model import warm_model_cache
 from framework.modes import get_mode_details, set_current_mode
 from framework.reporting import export_report
 from framework.scheduler import start_background_monitor
@@ -96,5 +97,6 @@ def export_monitoring_report():
 
 if __name__ == "__main__":
     ensure_database()
+    warm_model_cache()
     start_background_monitor()
     app.run(debug=False, use_reloader=False)
