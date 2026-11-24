@@ -29,6 +29,7 @@ INCIDENT_WINDOW_MINUTES = 10
 LIVE_ANALYSIS_SAMPLE_LIMIT = 90
 DEFAULT_ANALYSIS_SAMPLE_LIMIT = 30
 MIN_TRAINING_SAMPLES = 20
+ML_CONSENSUS_WINDOW = 12
 DEMO_EXPECTED_CLASSES = {
     "demo_normal": "stable",
     "demo_cpu_stress": "cpu_stress",
@@ -270,6 +271,29 @@ def _apply_demo_scenario_override(ml_prediction, mode):
     )
     scenario_prediction["message"] = scenario_prediction["agreement"]
     return scenario_prediction
+
+
+def _apply_resource_safety_escalation(ml_prediction, latest):
+    cpu = float(latest["cpu_percent"])
+    memory = float(latest["memory_percent"])
+
+    if cpu < CPU_HIGH_THRESHOLD and memory < MEMORY_HIGH_THRESHOLD:
+        return ml_prediction
+
+    escalated_prediction = dict(ml_prediction)
+    is_critical = cpu >= CPU_CRITICAL_THRESHOLD or memory >= MEMORY_CRITICAL_THRESHOLD
+    escalated_prediction["model_predicted_class"] = ml_prediction.get("predicted_class", "Not trained")
+    escalated_prediction["predicted_class"] = "critical" if is_critical else "watchlist"
+    escalated_prediction["state"] = "Critical" if is_critical else "Watchlist"
+    escalated_prediction["final_decision"] = "Critical" if is_critical else "Watchlist"
+    escalated_prediction["ml_risk"] = max(float(ml_prediction.get("ml_risk", 0)), 90 if is_critical else 55)
+    escalated_prediction["decision_source"] = "Immediate resource safety escalation"
+    escalated_prediction["agreement"] = (
+        "Current resource usage crossed a safety threshold, so the dashboard escalated the decision immediately. "
+        "The ML consensus remains available as supporting evidence."
+    )
+    escalated_prediction["message"] = escalated_prediction["agreement"]
+    return escalated_prediction
 
 
 def _build_observation(risk, intelligence):
@@ -705,7 +729,7 @@ def build_dashboard_payload(incident_filter="all"):
 
     latest = samples[-1]
     risk = calculate_risk_score(samples)
-    recent_ml_features = fetch_recent_ml_feature_samples(limit=5, mode=current_mode)
+    recent_ml_features = fetch_recent_ml_feature_samples(limit=ML_CONSENSUS_WINDOW, mode=current_mode)
     formatted_processes = [
         {
             "pid": row["pid"],
@@ -743,6 +767,7 @@ def build_dashboard_payload(incident_filter="all"):
     }
 
     ml_prediction = predict_from_feature_window(recent_ml_features, rule_state=summary["health_classification"])
+    ml_prediction = _apply_resource_safety_escalation(ml_prediction, latest)
     ml_prediction = _apply_demo_scenario_override(ml_prediction, current_mode)
     alerts = _detect_alerts(samples, risk, intelligence, ml_prediction)
     recommendations = _build_recommendations(alerts, latest, risk, intelligence, ml_prediction)
