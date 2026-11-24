@@ -57,6 +57,38 @@ h1 {
 
 .hero-copy, .panel-header p, .analysis-observation, .message-list li { color: var(--muted); }
 
+.hero-telemetry {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(100px, 1fr));
+    gap: 24px 32px;
+    max-width: 520px;
+    margin-top: 32px;
+}
+
+.hero-telemetry p {
+    margin: 0;
+    display: grid;
+    gap: 6px;
+}
+
+.hero-telemetry span {
+    color: var(--muted);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.hero-telemetry strong {
+    color: var(--text);
+    font-size: 1.75rem;
+}
+
+@media (max-width: 640px) {
+    .hero-telemetry {
+        grid-template-columns: repeat(2, minmax(100px, 1fr));
+    }
+}
+
 .hero-card, .panel {
     background: var(--panel);
     border: 1px solid var(--panel-border);
