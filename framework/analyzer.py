@@ -92,7 +92,7 @@ def _trend_label(values, high_threshold):
     return "Stable"
 
 
-def _detect_alerts(samples, risk, intelligence):
+def _detect_alerts(samples, risk, intelligence, ml_prediction):
     alerts = []
     if not samples:
         return alerts
@@ -153,10 +153,20 @@ def _detect_alerts(samples, risk, intelligence):
     elif risk["level"] == "High":
         alerts.append(_alert("high", "High stability risk", "The risk model shows strong signs of system instability and early action is recommended."))
 
+    if ml_prediction.get("available"):
+        ml_risk = float(ml_prediction.get("ml_risk", 0))
+        predicted_class = str(ml_prediction.get("predicted_class", "system state")).replace("_", " ")
+        if ml_risk >= 75:
+            alerts.append(_alert("critical", "ML critical stability decision", f"The ML model classified the current pattern as {predicted_class} with an ML risk of {ml_risk}."))
+        elif ml_risk >= 45:
+            alerts.append(_alert("medium", "ML watchlist decision", f"The ML model classified the current pattern as {predicted_class} with an ML risk of {ml_risk}."))
+        if "fallback" in str(ml_prediction.get("decision_source", "")).lower():
+            alerts.append(_alert("low", "ML confidence review", "The model confidence is low, so rule-based evidence remains the active decision source."))
+
     return alerts
 
 
-def _build_recommendations(alerts, latest, risk, intelligence):
+def _build_recommendations(alerts, latest, risk, intelligence, ml_prediction):
     recommendations = []
     severities = {alert["severity"] for alert in alerts}
 
@@ -178,6 +188,21 @@ def _build_recommendations(alerts, latest, risk, intelligence):
         recommendations.append("Compare current usage against the learned baseline before taking corrective action.")
     if intelligence["prediction"]["memory_next"] - float(latest["memory_percent"]) >= 4:
         recommendations.append("Prepare for higher memory pressure because the predictive trend is still rising.")
+    if ml_prediction.get("available"):
+        predicted_class = str(ml_prediction.get("predicted_class", "")).lower()
+        if predicted_class == "cpu_stress":
+            recommendations.append("ML classified CPU stress: reduce CPU-heavy applications and inspect the top CPU process.")
+        elif predicted_class == "memory_pressure":
+            recommendations.append("ML classified memory pressure: close memory-heavy applications and watch for continued growth.")
+        elif predicted_class == "spike":
+            recommendations.append("ML classified a spike: monitor the next few samples before closing expected short-lived workloads.")
+        elif predicted_class == "heavy_multitasking":
+            recommendations.append("ML classified heavy multitasking: reduce simultaneous non-essential applications.")
+        elif predicted_class == "critical":
+            recommendations.append("ML classified a critical condition: save work and reduce non-essential load immediately.")
+        elif predicted_class in {"stable", "normal_work"}:
+            recommendations.append("ML classified the current workload as normal; no immediate intervention is required.")
+    recommendations = list(dict.fromkeys(recommendations))
     if not recommendations:
         recommendations.append("System behavior is stable. Continue collecting historical data for stronger trend analysis.")
 
@@ -196,12 +221,23 @@ def _build_observation(risk, intelligence):
     return "The current monitoring window remains close to the learned baseline and looks stable."
 
 
-def _build_incident_summary(summary, intelligence):
+def _build_incident_summary(summary, intelligence, ml_prediction):
     health = summary["health_classification"]
     anomaly_score = summary["anomaly_score"]
     suspect = intelligence["process"]["top_suspect"]
     prediction = intelligence["prediction"]["message"]
     driver = intelligence["health"]["driver"]
+
+    if ml_prediction.get("available"):
+        predicted_class = str(ml_prediction.get("predicted_class", "system state")).replace("_", " ")
+        title = f"ML decision: {ml_prediction.get('final_decision', 'Watchlist')}"
+        narrative = (
+            f"The ML model classified the current system pattern as {predicted_class} with "
+            f"{ml_prediction.get('confidence', 0)}% confidence and ML risk {ml_prediction.get('ml_risk', 0)}. "
+            f"Decision source: {ml_prediction.get('decision_source', 'ML primary decision')}. "
+            f"{ml_prediction.get('agreement', '')}"
+        )
+        return {"title": title, "narrative": narrative}
 
     if health in {"Critical", "Unstable"}:
         title = f"{health} system condition detected"
@@ -617,8 +653,6 @@ def build_dashboard_payload(incident_filter="all"):
     ]
 
     intelligence = analyze_intelligence(samples, risk, formatted_processes, current_mode)
-    alerts = _detect_alerts(samples, risk, intelligence)
-    recommendations = _build_recommendations(alerts, latest, risk, intelligence)
 
     cpu_values = [float(sample["cpu_percent"]) for sample in samples]
     memory_values = [float(sample["memory_percent"]) for sample in samples]
@@ -638,6 +672,10 @@ def build_dashboard_payload(incident_filter="all"):
         "anomaly_score": intelligence["anomaly"]["score"],
         "collection_label": latest["collection_label"] if "collection_label" in latest.keys() else "unlabeled",
     }
+
+    ml_prediction = predict_from_feature_row(latest_ml_features, rule_state=summary["health_classification"])
+    alerts = _detect_alerts(samples, risk, intelligence, ml_prediction)
+    recommendations = _build_recommendations(alerts, latest, risk, intelligence, ml_prediction)
 
     incident_window_start = _incident_window_start(samples)
     derived_incident_history = _filter_incidents_to_window(
@@ -698,7 +736,7 @@ def build_dashboard_payload(incident_filter="all"):
         },
         "risk_breakdown": risk["factors"],
         "intelligence": intelligence,
-        "ml_prediction": predict_from_feature_row(latest_ml_features, rule_state=summary["health_classification"]),
+        "ml_prediction": ml_prediction,
         "monitoring_mode": {
             "current": get_mode_details(current_mode),
             "available": list_modes(),
@@ -710,7 +748,7 @@ def build_dashboard_payload(incident_filter="all"):
         },
         "data_readiness": data_readiness,
         "collection_sessions": collection_sessions,
-        "incident_summary": _build_incident_summary(summary, intelligence),
+        "incident_summary": _build_incident_summary(summary, intelligence, ml_prediction),
         "incident_history": [
             {
                 "time": row["time"],

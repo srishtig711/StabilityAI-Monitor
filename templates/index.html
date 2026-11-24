@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StabilityAI Monitor</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20261124_startup_fix">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20261125_ml_first">
 </head>
 <body>
     <div class="page-shell">
@@ -18,9 +18,13 @@
                 </p>
             </div>
             <div class="hero-card">
-                <p class="hero-card-label">Live Stability Risk</p>
-                <p id="risk-score" class="hero-risk-score">0</p>
-                <p id="risk-level" class="hero-risk-level low">Low</p>
+                <p class="hero-card-label">ML Stability Decision</p>
+                <p id="final-stability-decision" class="hero-risk-score">Loading</p>
+                <p id="decision-source" class="decision-source">Preparing ML analysis</p>
+                <div class="hero-decision-metrics">
+                    <span>ML Risk <strong id="hero-ml-risk">0</strong></span>
+                    <span>Confidence <strong id="hero-ml-confidence">0%</strong></span>
+                </div>
                 <label class="mode-switcher" for="mode-select">
                     <span>Monitoring Mode</span>
                     <select id="mode-select"></select>
@@ -37,7 +41,7 @@
 
         <nav class="view-switcher" aria-label="Dashboard view">
             <button id="monitoring-view-button" class="view-switch-button active" type="button" data-view="monitoring">Monitoring View</button>
-            <button id="collection-view-button" class="view-switch-button" type="button" data-view="collection">Data Collection View</button>
+            <button id="collection-view-button" class="view-switch-button hidden" type="button" data-view="collection">Developer Data Collection</button>
         </nav>
 
         <main class="dashboard-grid">
@@ -77,8 +81,8 @@
 
             <section class="panel analysis-panel monitoring-view-panel">
                 <div class="panel-header">
-                    <h2>Rule-Based Analysis</h2>
-                    <p>Threshold checks and deviations from recent behavior.</p>
+                    <h2>Rule-Based Evidence</h2>
+                    <p>Explainable thresholds and trends used as supporting evidence and a fallback.</p>
                 </div>
                 <div class="analysis-grid">
                     <article class="analysis-card"><span>CPU Trend</span><strong id="cpu-trend">-</strong></article>
@@ -92,10 +96,12 @@
 
             <section class="panel analysis-breakdown-panel monitoring-view-panel">
                 <div class="panel-header">
-                    <h2>Risk Breakdown</h2>
-                    <p>The risk score is calculated from intensity, duration, deviation, and process pressure.</p>
+                    <h2>Rule-Based Risk Evidence</h2>
+                    <p>This is retained to explain the decision, not to replace the ML primary decision.</p>
                 </div>
                 <div class="metrics-grid">
+                    <article class="metric-card"><span>Rule Risk</span><strong id="risk-score">0</strong></article>
+                    <article class="metric-card"><span>Rule Level</span><strong id="risk-level">Low</strong></article>
                     <article class="metric-card"><span>Intensity</span><strong id="risk-intensity">0</strong></article>
                     <article class="metric-card"><span>Duration</span><strong id="risk-duration">0</strong></article>
                     <article class="metric-card"><span>Deviation</span><strong id="risk-deviation">0</strong></article>
@@ -122,16 +128,20 @@
 
             <section class="panel ml-panel monitoring-view-panel">
                 <div class="panel-header">
-                    <h2>ML Classification</h2>
-                    <p>Supervised model output trained from labeled resource and process-summary features.</p>
+                    <h2>ML Stability Engine</h2>
+                    <p>Primary decision based on supervised learning from labeled resource and process-summary features.</p>
                 </div>
                 <div class="metrics-grid">
+                    <article class="metric-card"><span>Final Decision</span><strong id="ml-final-decision">Loading</strong></article>
+                    <article class="metric-card"><span>ML Risk</span><strong id="ml-risk">0</strong></article>
                     <article class="metric-card"><span>Predicted Class</span><strong id="ml-predicted-class">Not trained</strong></article>
                     <article class="metric-card"><span>Confidence</span><strong id="ml-confidence">0%</strong></article>
-                    <article class="metric-card"><span>ML State</span><strong id="ml-state">Unavailable</strong></article>
+                    <article class="metric-card"><span>Decision Source</span><strong id="ml-decision-source">-</strong></article>
                     <article class="metric-card"><span>Model Version</span><strong id="ml-model-version">-</strong></article>
                 </div>
                 <p id="ml-comparison" class="analysis-observation"></p>
+                <p class="ml-signals-title">ML Feature Signals</p>
+                <ul id="ml-feature-signals" class="message-list"></ul>
             </section>
 
             <section class="panel collection-control-panel collection-view-panel hidden">
@@ -252,6 +262,6 @@
         </main>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}?v=20261124_startup_fix"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v=20261125_ml_first"></script>
 </body>
 </html>

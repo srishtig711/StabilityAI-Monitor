@@ -29,6 +29,16 @@ FEATURE_COLUMNS = [
 
 STABLE_LABELS = {"stable", "normal_work"}
 CRITICAL_LABELS = {"critical"}
+CLASS_RISK_WEIGHTS = {
+    "stable": 5,
+    "normal_work": 15,
+    "spike": 55,
+    "cpu_stress": 75,
+    "memory_pressure": 75,
+    "heavy_multitasking": 85,
+    "critical": 100,
+}
+LOW_CONFIDENCE_THRESHOLD = 55
 _cached_model = None
 _model_load_attempted = False
 
@@ -39,6 +49,12 @@ def _default_prediction(reason):
         "predicted_class": "Not trained",
         "confidence": 0,
         "state": "Unavailable",
+        "ml_risk": 0,
+        "final_decision": "Rule-based fallback",
+        "decision_source": "Rule-based fallback",
+        "agreement": "ML model is unavailable.",
+        "probabilities": {},
+        "feature_signals": [],
         "message": reason,
         "model_version": "",
     }
@@ -57,7 +73,7 @@ def _load_model():
     try:
         with MODEL_PATH.open("rb") as model_file:
             _cached_model = pickle.load(model_file)
-    except (OSError, pickle.PickleError, EOFError, AttributeError, ValueError):
+    except (OSError, pickle.PickleError, EOFError, AttributeError, ValueError, ImportError):
         _cached_model = None
 
     return _cached_model
@@ -134,12 +150,77 @@ def _label_to_state(label):
     return "Watchlist"
 
 
-def _compare_with_rule(rule_state, ml_state):
-    if not rule_state or ml_state == "Unavailable":
-        return "Waiting for both rule-based and ML states."
-    if str(rule_state).lower() == str(ml_state).lower():
-        return "Rule-based and ML analysis agree."
-    return f"Rule-based state is {rule_state}; ML state is {ml_state}."
+def _risk_to_decision(risk):
+    if risk >= 75:
+        return "Critical"
+    if risk >= 45:
+        return "Watchlist"
+    return "Stable"
+
+
+def _rule_to_decision(rule_state):
+    normalized = str(rule_state or "").strip().lower()
+    if normalized in {"critical", "unstable"}:
+        return "Critical"
+    if normalized in {"degrading", "watchlist", "high", "medium"}:
+        return "Watchlist"
+    return "Stable"
+
+
+def _feature_signals(row):
+    def value(key):
+        try:
+            return row[key]
+        except (KeyError, TypeError, IndexError):
+            return 0
+
+    signals = []
+    cpu = float(value("cpu_percent") or 0)
+    memory = float(value("memory_percent") or 0)
+    cpu_delta = float(value("cpu_delta") or 0)
+    memory_delta = float(value("memory_delta") or 0)
+    high_cpu = int(value("high_cpu_processes") or 0)
+    high_memory = int(value("high_memory_processes") or 0)
+    max_process_cpu = float(value("max_process_cpu") or 0)
+    max_process_memory = float(value("max_process_memory") or 0)
+
+    if cpu >= 80:
+        signals.append(f"High CPU usage at {cpu:.1f}%.")
+    if memory >= 85:
+        signals.append(f"High memory usage at {memory:.1f}%.")
+    if abs(cpu_delta) >= 18:
+        signals.append(f"Sudden CPU change of {cpu_delta:+.1f} percentage points.")
+    if abs(memory_delta) >= 8:
+        signals.append(f"Sudden memory change of {memory_delta:+.1f} percentage points.")
+    if high_cpu:
+        signals.append(f"{high_cpu} process(es) crossed the high-CPU threshold.")
+    if high_memory:
+        signals.append(f"{high_memory} process(es) crossed the high-memory threshold.")
+    if max_process_cpu >= 50:
+        signals.append(f"Top sampled process CPU reached {max_process_cpu:.1f}%.")
+    if max_process_memory >= 12:
+        signals.append(f"Top sampled process memory reached {max_process_memory:.1f}%.")
+
+    return signals[:4] or ["Current resource pattern was matched against labeled historical telemetry."]
+
+
+def _build_decision(rule_state, confidence, ml_risk):
+    ml_decision = _risk_to_decision(ml_risk)
+    rule_decision = _rule_to_decision(rule_state)
+
+    if confidence < LOW_CONFIDENCE_THRESHOLD:
+        return (
+            rule_decision,
+            "Rule-based fallback due to low ML confidence",
+            f"ML confidence is {confidence}%, so the rule-based decision remains active.",
+        )
+
+    if ml_decision == rule_decision:
+        agreement = "ML and rule-based analysis agree."
+    else:
+        agreement = f"ML primary decision is {ml_decision}; rule-based evidence is {rule_decision}."
+
+    return ml_decision, "ML primary decision", agreement
 
 
 def predict_from_feature_row(row, rule_state=None):
@@ -155,12 +236,17 @@ def predict_from_feature_row(row, rule_state=None):
             return _default_prediction("The saved ML model has no classifier data.")
 
     raw_vector = _feature_vector(row, feature_columns)
+    probabilities_by_label = {}
     if model.get("estimator"):
         estimator = model["estimator"]
         predicted_label = str(estimator.predict([raw_vector])[0])
         if hasattr(estimator, "predict_proba"):
             probabilities = estimator.predict_proba([raw_vector])[0]
             classes = [str(label) for label in estimator.classes_]
+            probabilities_by_label = {
+                label: round(float(probability) * 100, 2)
+                for label, probability in zip(classes, probabilities)
+            }
             confidence = round(float(probabilities[classes.index(predicted_label)]) * 100, 2)
         else:
             confidence = 0
@@ -174,13 +260,28 @@ def predict_from_feature_row(row, rule_state=None):
         predicted_label, confidence = _predict_with_knn(vector, model)
     elif not model.get("estimator"):
         predicted_label, confidence = _predict_with_centroids(vector, model)
+    if not probabilities_by_label:
+        probabilities_by_label = {predicted_label: confidence}
+
+    weighted_risk = sum(
+        CLASS_RISK_WEIGHTS.get(label, 50) * probability / 100
+        for label, probability in probabilities_by_label.items()
+    )
+    ml_risk = round(max(0, min(100, weighted_risk)), 2)
     ml_state = _label_to_state(predicted_label)
+    final_decision, decision_source, agreement = _build_decision(rule_state, confidence, ml_risk)
 
     return {
         "available": True,
         "predicted_class": predicted_label,
         "confidence": confidence,
         "state": ml_state,
-        "message": _compare_with_rule(rule_state, ml_state),
+        "ml_risk": ml_risk,
+        "final_decision": final_decision,
+        "decision_source": decision_source,
+        "agreement": agreement,
+        "probabilities": probabilities_by_label,
+        "feature_signals": _feature_signals(row),
+        "message": agreement,
         "model_version": model.get("version", ""),
     }

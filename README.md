@@ -1,23 +1,24 @@
 # StabilityAI Monitor
 
-This project implements a proactive system monitoring framework using Python, Flask, SQLite, `psutil`, HTML, CSS, JavaScript, and Chart.js.
+StabilityAI Monitor is a local AI-assisted system monitoring framework built with Python, Flask, SQLite, `psutil`, HTML, CSS, and JavaScript.
 
-The 6th-semester version was primarily rule-based. The 7th-semester upgrade keeps that rule-based system as a baseline and adds supervised ML classification beside it, using labeled samples collected from real system usage and controlled workload sessions.
+The 6th-semester version was primarily rule-based. The 7th-semester upgrade makes supervised ML classification the primary stability decision, while retaining rule-based analysis as explainable evidence and a low-confidence fallback.
 
 ## Current Features
 
 - Real-time CPU and memory monitoring
 - Process-level tracking with monitor-process filtering
 - Historical storage in SQLite
-- Rule-based trend, threshold, incident, and risk analysis
+- ML-first final stability decision, confidence gate, probability-weighted ML risk, and feature signals
+- Rule-based trend, threshold, incident, and risk evidence as an explanation and fallback
 - Adaptive baseline and anomaly scoring
-- Dashboard with charts, alerts, recommendations, incident history, and report export
+- Dashboard with local charts, ML-driven alerts, recommendations, incident history, and report export
 - Active collection labels for supervised ML data collection
 - Monitor overhead tracking for the Flask monitoring process
 - Controlled workload scripts for CPU stress, memory pressure, and spike sessions
 - Labeled dataset export for supervised learning
-- Dependency-free nearest-centroid ML baseline classifier
-- Rule-based vs ML dashboard comparison
+- Gradient Boosting ML classifier selected through model comparison
+- ML-primary versus rule-based evidence comparison
 
 ## Architecture
 
@@ -44,7 +45,7 @@ From the project folder, run:
 .\run.bat
 ```
 
-This creates `.venv` if needed, installs dependencies, and starts the Flask app.
+This creates `.runtime` if needed, installs dependencies, warms the ML model, and starts the Flask app.
 
 ### Manual setup
 
@@ -69,12 +70,18 @@ This creates `.venv` if needed, installs dependencies, and starts the Flask app.
 
 4. Open [http://127.0.0.1:5000](http://127.0.0.1:5000)
 
-## Labeled Data Collection
+## User and Developer Views
 
-The dashboard has two views:
+The normal dashboard is the user-facing monitoring experience:
 
-- **Monitoring View** is the normal-user/presentation view for risk, alerts, charts, ML classification, and process analysis.
-- **Data Collection View** contains training-only controls such as collection labels, readiness counts, and session history.
+- **Monitoring View** shows the ML stability decision, ML risk, confidence, alerts, charts, recommendations, and process analysis.
+- **Developer Data Collection** contains training-only controls such as collection labels, readiness counts, and session history. It is hidden from normal users.
+
+Open Developer Data Collection only when preparing ML data:
+
+```text
+http://127.0.0.1:5000/?developer=1
+```
 
 Use the **Collection Label** selector in Data Collection View before and during each data collection session.
 
@@ -91,7 +98,7 @@ Available labels:
 
 Recommended collection approach:
 
-1. Start the dashboard with `python app.py` or `.\run.bat`.
+1. Open the developer URL above after starting `.\run.bat`.
 2. Set the correct collection label in the dashboard.
 3. Let the monitor collect samples while the real workload is happening.
 4. Change the label when the workload type changes.
@@ -128,20 +135,13 @@ Start with smaller values if the system feels slow, especially for memory pressu
 Export supervised-learning rows after collecting labeled samples:
 
 ```powershell
-python tools\export_labeled_dataset.py
+.runtime\Scripts\python.exe tools\export_ml_features.py
 ```
 
 By default, this excludes `unlabeled` rows and writes:
 
 ```text
-reports\labeled_stability_dataset.csv
-```
-
-Useful options:
-
-```powershell
-python tools\export_labeled_dataset.py --features-only
-python tools\export_labeled_dataset.py --include-unlabeled
+reports\ml_feature_samples.csv
 ```
 
 ## Training the ML Baseline
@@ -149,7 +149,7 @@ python tools\export_labeled_dataset.py --include-unlabeled
 Train after enough labeled samples exist across at least two labels:
 
 ```powershell
-python tools\train_ml_model.py
+.runtime\Scripts\python.exe tools\train_ml_model.py
 ```
 
 Outputs:
@@ -157,13 +157,13 @@ Outputs:
 - `models\stability_model.pkl`
 - `reports\ml_evaluation_report.md`
 
-The current baseline is a standard-scaled nearest-centroid classifier. It was chosen because it is supervised, explainable, and does not require extra dependencies beyond the current project setup.
+The training process compares Gradient Boosting, Random Forest, and Extra Trees classifiers. The selected model is chosen primarily by chronological holdout accuracy, which better represents prediction on later unseen monitoring data.
 
-If no trained model exists yet, the dashboard shows **Not trained** in the ML Classification section while the rule-based system continues working normally.
+If no trained model exists yet, the dashboard uses rule-based fallback while the ML section explains that the model is unavailable.
 
 - Keep rule-based analysis as the baseline.
 - Collect real labeled samples from normal usage, app workloads, and controlled workloads.
 - Train and evaluate the ML classifier on numeric resource/process-summary features.
-- Compare ML classification against the rule-based health state.
+- Use ML classification as the primary stability decision and rule-based analysis as supporting evidence.
 - Improve the classifier after enough balanced labeled data is available.
 - Use reports and dashboard screenshots for project evaluation and presentation.

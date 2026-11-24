@@ -9,6 +9,7 @@ let currentIncidentFilter = "all";
 let liveUpdatesPaused = false;
 let dashboardIntervalId;
 let currentDashboardView = "monitoring";
+const developerMode = new URLSearchParams(window.location.search).get("developer") === "1";
 
 function createChart(context, label, color) {
     if (typeof Chart === "undefined") {
@@ -21,29 +22,59 @@ function createChart(context, label, color) {
             },
             update() {
                 const parent = canvas.parentElement;
-                const width = parent ? parent.clientWidth : 420;
-                const height = parent ? parent.clientHeight : 220;
-                canvas.width = Math.max(width, 240);
-                canvas.height = Math.max(height, 160);
-                drawingContext.clearRect(0, 0, canvas.width, canvas.height);
+                const width = parent ? parent.clientWidth : 640;
+                const height = parent ? parent.clientHeight : 280;
+                const pixelRatio = window.devicePixelRatio || 1;
+                canvas.width = Math.max(width, 320) * pixelRatio;
+                canvas.height = Math.max(height, 240) * pixelRatio;
+                canvas.style.width = `${Math.max(width, 320)}px`;
+                canvas.style.height = `${Math.max(height, 240)}px`;
+                drawingContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+                const chartWidth = canvas.width / pixelRatio;
+                const chartHeight = canvas.height / pixelRatio;
+                drawingContext.clearRect(0, 0, chartWidth, chartHeight);
                 drawingContext.fillStyle = "#9fb0c7";
-                drawingContext.font = "13px Arial";
+                drawingContext.font = "600 13px Segoe UI, Arial";
                 drawingContext.fillText(label, 14, 24);
 
                 const values = this.data.datasets[0].data;
                 if (!values.length) {
+                    drawingContext.font = "13px Segoe UI, Arial";
+                    drawingContext.fillText("Waiting for monitoring samples...", 14, 52);
                     return;
                 }
 
-                const padding = 28;
-                const plotWidth = canvas.width - padding * 2;
-                const plotHeight = canvas.height - padding * 2;
+                const plot = { left: 48, right: 18, top: 42, bottom: 34 };
+                const plotWidth = chartWidth - plot.left - plot.right;
+                const plotHeight = chartHeight - plot.top - plot.bottom;
+                const yForValue = (value) => chartHeight - plot.bottom - (plotHeight * Math.min(Math.max(value, 0), 100)) / 100;
+
+                drawingContext.font = "12px Segoe UI, Arial";
+                drawingContext.lineWidth = 1;
+                for (let tick = 0; tick <= 100; tick += 25) {
+                    const y = yForValue(tick);
+                    drawingContext.strokeStyle = "rgba(148, 163, 184, 0.18)";
+                    drawingContext.beginPath();
+                    drawingContext.moveTo(plot.left, y);
+                    drawingContext.lineTo(chartWidth - plot.right, y);
+                    drawingContext.stroke();
+                    drawingContext.fillStyle = "#9fb0c7";
+                    drawingContext.fillText(`${tick}%`, 8, y + 4);
+                }
+
+                drawingContext.strokeStyle = "rgba(148, 163, 184, 0.45)";
+                drawingContext.beginPath();
+                drawingContext.moveTo(plot.left, plot.top);
+                drawingContext.lineTo(plot.left, chartHeight - plot.bottom);
+                drawingContext.lineTo(chartWidth - plot.right, chartHeight - plot.bottom);
+                drawingContext.stroke();
+
                 drawingContext.strokeStyle = color;
-                drawingContext.lineWidth = 2;
+                drawingContext.lineWidth = 2.5;
                 drawingContext.beginPath();
                 values.forEach((value, index) => {
-                    const x = padding + (plotWidth * index) / Math.max(values.length - 1, 1);
-                    const y = canvas.height - padding - (plotHeight * Math.min(Math.max(value, 0), 100)) / 100;
+                    const x = plot.left + (plotWidth * index) / Math.max(values.length - 1, 1);
+                    const y = yForValue(value);
                     if (index === 0) {
                         drawingContext.moveTo(x, y);
                     } else {
@@ -51,6 +82,17 @@ function createChart(context, label, color) {
                     }
                 });
                 drawingContext.stroke();
+
+                const labels = this.data.labels;
+                const labelIndexes = [...new Set([0, Math.floor((labels.length - 1) / 2), labels.length - 1])];
+                drawingContext.fillStyle = "#9fb0c7";
+                drawingContext.font = "11px Segoe UI, Arial";
+                labelIndexes.forEach((index) => {
+                    const x = plot.left + (plotWidth * index) / Math.max(labels.length - 1, 1);
+                    const labelText = String(labels[index] || "");
+                    const textWidth = drawingContext.measureText(labelText).width;
+                    drawingContext.fillText(labelText, x - textWidth / 2, chartHeight - 12);
+                });
             }
         };
 
@@ -226,7 +268,7 @@ function updateLiveUpdateUi() {
 }
 
 function setDashboardView(view) {
-    currentDashboardView = view === "collection" ? "collection" : "monitoring";
+    currentDashboardView = developerMode && view === "collection" ? "collection" : "monitoring";
     document.querySelectorAll(".monitoring-view-panel").forEach((panel) => {
         panel.classList.toggle("hidden", currentDashboardView !== "monitoring");
     });
@@ -235,6 +277,32 @@ function setDashboardView(view) {
     });
     document.querySelectorAll(".view-switch-button").forEach((button) => {
         button.classList.toggle("active", button.dataset.view === currentDashboardView);
+    });
+}
+
+function configureDeveloperMode() {
+    const collectionButton = document.getElementById("collection-view-button");
+    collectionButton.classList.toggle("hidden", !developerMode);
+    if (!developerMode) {
+        setDashboardView("monitoring");
+    }
+}
+
+function updateFinalDecision(decision) {
+    const target = document.getElementById("final-stability-decision");
+    const normalizedDecision = String(decision || "Stable").toLowerCase();
+    target.textContent = decision || "Stable";
+    target.className = `hero-risk-score ${normalizedDecision}`;
+}
+
+function renderMlFeatureSignals(signals) {
+    const list = document.getElementById("ml-feature-signals");
+    list.innerHTML = "";
+
+    (signals || []).forEach((signal) => {
+        const item = document.createElement("li");
+        item.textContent = signal;
+        list.appendChild(item);
     });
 }
 
@@ -433,6 +501,12 @@ async function fetchDashboard(options = {}) {
     setText("last-refresh-time", `Last refreshed: ${formatRefreshTime(payload.summary.latest_sample_time)}`);
     updateRiskLevel(payload.summary.risk_level);
 
+    const mlPrediction = payload.ml_prediction || {};
+    updateFinalDecision(mlPrediction.final_decision ?? "Rule-based fallback");
+    setText("decision-source", mlPrediction.decision_source ?? "Rule-based fallback");
+    setText("hero-ml-risk", mlPrediction.ml_risk ?? 0);
+    setText("hero-ml-confidence", `${mlPrediction.confidence ?? 0}%`);
+
     setText("cpu-trend", payload.analysis.cpu_trend);
     setText("memory-trend", payload.analysis.memory_trend);
     setText("cpu-streak", payload.analysis.cpu_streak ?? 0);
@@ -449,10 +523,12 @@ async function fetchDashboard(options = {}) {
     setText("health-driver", payload.intelligence.health.driver ?? "None");
     setText("predicted-cpu", payload.intelligence.prediction.cpu_next ?? 0);
     setText("predicted-memory", payload.intelligence.prediction.memory_next ?? 0);
-    setText("ml-predicted-class", payload.ml_prediction?.predicted_class ?? "Not trained");
-    setText("ml-confidence", `${payload.ml_prediction?.confidence ?? 0}%`);
-    setText("ml-state", payload.ml_prediction?.state ?? "Unavailable");
-    setText("ml-model-version", payload.ml_prediction?.model_version || "-");
+    setText("ml-final-decision", mlPrediction.final_decision ?? "Rule-based fallback");
+    setText("ml-risk", mlPrediction.ml_risk ?? 0);
+    setText("ml-predicted-class", mlPrediction.predicted_class ?? "Not trained");
+    setText("ml-confidence", `${mlPrediction.confidence ?? 0}%`);
+    setText("ml-decision-source", mlPrediction.decision_source ?? "-");
+    setText("ml-model-version", mlPrediction.model_version || "-");
     setText("readiness-labeled-total", payload.data_readiness?.labeled_total ?? 0);
     setText("readiness-unlabeled-total", payload.data_readiness?.unlabeled_total ?? 0);
     setText(
@@ -473,7 +549,8 @@ async function fetchDashboard(options = {}) {
         setText("incident-narrative", payload.incident_summary.narrative ?? "");
         setText("intelligence-explanation", payload.intelligence.explanation ?? "");
         setText("prediction-message", payload.intelligence.prediction.message ?? "");
-        setText("ml-comparison", payload.ml_prediction?.message ?? "");
+        setText("ml-comparison", mlPrediction.agreement ?? mlPrediction.message ?? "");
+        renderMlFeatureSignals(mlPrediction.feature_signals);
         setText("readiness-message", payload.data_readiness?.message ?? "");
         renderLabelCounts(payload.data_readiness ?? { labels: [] });
         renderCollectionSessions(payload.collection_sessions ?? { current: {}, recent: [] });
@@ -603,6 +680,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("process-table-body").addEventListener("click", openProcessLocation);
 
     updateLiveUpdateUi();
+    configureDeveloperMode();
     setDashboardView("monitoring");
     dashboardIntervalId = window.setInterval(() => {
         fetchDashboard();
