@@ -600,6 +600,35 @@ def fetch_latest_ml_feature_sample(mode=None):
     return row
 
 
+def fetch_recent_ml_feature_samples(limit=5, mode=None):
+    connection = get_connection()
+
+    if mode:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM ml_feature_samples
+            WHERE mode = ?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (mode, limit),
+        ).fetchall()
+    else:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM ml_feature_samples
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    connection.close()
+    return list(reversed(rows))
+
+
 def fetch_ml_feature_label_counts():
     connection = get_connection()
     rows = connection.execute(

@@ -285,3 +285,55 @@ def predict_from_feature_row(row, rule_state=None):
         "message": agreement,
         "model_version": model.get("version", ""),
     }
+
+
+def predict_from_feature_window(rows, rule_state=None):
+    if not rows:
+        return predict_from_feature_row(None, rule_state=rule_state)
+
+    predictions = [predict_from_feature_row(row, rule_state=rule_state) for row in rows]
+    latest_prediction = predictions[-1]
+    if not latest_prediction.get("available"):
+        return latest_prediction
+
+    labels = sorted(
+        {
+            label
+            for prediction in predictions
+            for label in prediction.get("probabilities", {})
+        }
+    )
+    averaged_probabilities = {
+        label: round(
+            sum(prediction.get("probabilities", {}).get(label, 0) for prediction in predictions) / len(predictions),
+            2,
+        )
+        for label in labels
+    }
+    predicted_label = max(averaged_probabilities, key=averaged_probabilities.get)
+    confidence = averaged_probabilities[predicted_label]
+    ml_risk = round(
+        max(
+            0,
+            min(
+                100,
+                sum(CLASS_RISK_WEIGHTS.get(label, 50) * probability / 100 for label, probability in averaged_probabilities.items()),
+            ),
+        ),
+        2,
+    )
+    final_decision, decision_source, agreement = _build_decision(rule_state, confidence, ml_risk)
+
+    return {
+        **latest_prediction,
+        "predicted_class": predicted_label,
+        "confidence": confidence,
+        "state": _label_to_state(predicted_label),
+        "ml_risk": ml_risk,
+        "final_decision": final_decision,
+        "decision_source": f"{decision_source} ({len(predictions)}-sample consensus)",
+        "agreement": agreement,
+        "probabilities": averaged_probabilities,
+        "message": agreement,
+        "window_size": len(predictions),
+    }

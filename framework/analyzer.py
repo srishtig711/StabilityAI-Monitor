@@ -3,17 +3,17 @@ from statistics import mean
 
 from framework.database import (
     fetch_current_collection_session,
-    fetch_latest_ml_feature_sample,
     fetch_latest_processes,
     fetch_ml_feature_label_counts,
     fetch_recent_collection_sessions,
     fetch_recent_incidents,
+    fetch_recent_ml_feature_samples,
     fetch_recent_system_samples,
     insert_incident_events,
 )
 from framework.intelligence import analyze_intelligence
 from framework.labels import get_label_details, list_labels
-from framework.ml_model import predict_from_feature_row
+from framework.ml_model import predict_from_feature_row, predict_from_feature_window
 from framework.modes import get_current_mode, get_mode_details, list_modes
 from framework.risk import calculate_risk_score
 
@@ -705,7 +705,7 @@ def build_dashboard_payload(incident_filter="all"):
 
     latest = samples[-1]
     risk = calculate_risk_score(samples)
-    latest_ml_features = fetch_latest_ml_feature_sample(mode=current_mode)
+    recent_ml_features = fetch_recent_ml_feature_samples(limit=5, mode=current_mode)
     formatted_processes = [
         {
             "pid": row["pid"],
@@ -742,7 +742,7 @@ def build_dashboard_payload(incident_filter="all"):
         "collection_label": latest["collection_label"] if "collection_label" in latest.keys() else "unlabeled",
     }
 
-    ml_prediction = predict_from_feature_row(latest_ml_features, rule_state=summary["health_classification"])
+    ml_prediction = predict_from_feature_window(recent_ml_features, rule_state=summary["health_classification"])
     ml_prediction = _apply_demo_scenario_override(ml_prediction, current_mode)
     alerts = _detect_alerts(samples, risk, intelligence, ml_prediction)
     recommendations = _build_recommendations(alerts, latest, risk, intelligence, ml_prediction)
